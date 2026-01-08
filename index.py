@@ -4,7 +4,7 @@ Optimized for Vercel Serverless & Robust Bot Support
 """
 
 from fastapi import FastAPI, Request
-from fastapi.responses import StreamingResponse, JSONResponse, HTMLResponse
+from fastapi.responses import StreamingResponse, JSONResponse, HTMLResponse, RedirectResponse
 from telethon import TelegramClient
 from telethon.sessions import StringSession
 from telethon.tl.types import DocumentAttributeVideo
@@ -202,18 +202,18 @@ async def handle_update_logic(message):
 
             # Step 3: Generate links
             encoded_id = encode_id(new_msg_id)
-            watch_link = f"{BASE_URL}/watch/{encoded_id}"
+            landing_page = f"{BASE_URL}/v/{encoded_id}"
             stream_link = f"{BASE_URL}/stream/{encoded_id}"
             download_link = f"{BASE_URL}/download/{encoded_id}"
             
             response = (
                 f"✅ <b>Host Successful!</b>\n\n"
-                f"🎬 <b>WATCH ONLINE:</b>\n"
-                f"👉 {watch_link}\n\n"
-                f"� <b>File ID:</b> <code>{encoded_id}</code>\n"
-                f"▶️ <b>Direct Stream:</b> <code>{stream_link}</code>\n"
+                f"🎬 <b>ACCESS YOUR FILE:</b>\n"
+                f"👉 {landing_page}\n\n"
+                f"📁 <b>File ID:</b> <code>{encoded_id}</code>\n"
+                f"🔗 <b>Direct Stream:</b> {stream_link}\n"
                 f"⬇️ <b>Fast Download:</b> {download_link}\n\n"
-                f"✨ <i>Tip: Use 'Watch Online' for a cinematic experience with subtitles and audio controls!</i>"
+                f"✨ <i>Tip: The link above works for both watching online and downloading!</i>"
             )
             await send_text_fast(chat_id, response)
             print(f"🎉 Success for {chat_id}")
@@ -345,6 +345,123 @@ class TelegramStreamWrapper:
             async for chunk in self.iterator: yield chunk
         finally:
             await self.client.disconnect()
+
+@app.get("/watch/{encoded_id}")
+async def old_watch_redirect(encoded_id: str):
+    """Fallback for old watch links"""
+    return RedirectResponse(url=f"/v/{encoded_id}")
+
+@app.get("/v/{encoded_id}")
+async def universal_landing_page(encoded_id: str):
+    """The Ultimate Universal Landing Page for all Files"""
+    stream_url = f"{BASE_URL}/stream/{encoded_id}"
+    download_url = f"{BASE_URL}/download/{encoded_id}"
+    
+    return HTMLResponse(content=f"""
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TeleFileStream | Premium Access</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap">
+    <script src="https://cdn.jsdelivr.net/npm/artplayer/dist/artplayer.js"></script>
+    <style>
+        :root {{
+            --primary: #3498db;
+            --bg: #05070a;
+            --accent: #2ecc71;
+            --glass: rgba(255, 255, 255, 0.03);
+            --border: rgba(255, 255, 255, 0.08);
+        }}
+        body {{ background: var(--bg); margin: 0; padding: 0; color: #fff; font-family: 'Outfit', sans-serif; overflow-x: hidden; }}
+        .bg-glow {{ position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+            background: radial-gradient(circle at 50% 50%, #1e3a8a 0%, transparent 50%), radial-gradient(circle at 80% 20%, #1e1b4b 0%, transparent 30%);
+            opacity: 0.3; z-index: -1; animation: pulse 10s infinite alternate; 
+        }}
+        @keyframes pulse {{ from {{ transform: scale(1); }} to {{ transform: scale(1.1); }} }}
+        .navbar {{ padding: 20px 5%; display: flex; align-items: center; justify-content: space-between; background: var(--glass); backdrop-filter: blur(15px); border-bottom: 1px solid var(--border); }}
+        .logo {{ font-weight: 600; font-size: 22px; color: var(--primary); text-decoration: none; }}
+        .logo span {{ color: #fff; }}
+        .main-container {{ max-width: 1200px; margin: 40px auto; padding: 0 20px; text-align: center; }}
+        
+        /* Player & Display Section */
+        .content-card {{ position: relative; border-radius: 20px; overflow: hidden; box-shadow: 0 40px 100px rgba(0,0,0,0.8); border: 1px solid var(--border); background: #000; min-height: 200px; }}
+        .player-view {{ height: 65vh; width: 100%; display:none; }}
+        .file-view {{ padding: 60px 20px; display:block; }}
+        .file-icon {{ font-size: 80px; margin-bottom: 20px; display: block; }}
+        
+        .action-container {{ margin-top: 30px; display: flex; flex-direction: column; align-items: center; gap: 15px; }}
+        .btn {{ 
+            padding: 16px 40px; border-radius: 50px; font-weight: 600; font-size: 16px; 
+            text-decoration: none; transition: all 0.3s ease; display: inline-flex; align-items: center; gap: 10px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2); border: none; cursor: pointer;
+        }}
+        .btn-primary {{ background: linear-gradient(135deg, #3498db, #2980b9); color: #fff; }}
+        .btn-primary:hover {{ transform: translateY(-3px); box-shadow: 0 15px 30px rgba(52, 152, 219, 0.4); }}
+        .btn-outline {{ background: var(--glass); color: #fff; border: 1px solid var(--border); }}
+        .btn-outline:hover {{ background: rgba(255,255,255,0.08); }}
+
+        @media (max-width: 768px) {{ .player-view {{ height: 35vh; }} .btn {{ width: 100%; justify-content: center; box-sizing: border-box; }} }}
+    </style>
+</head>
+<body>
+    <div class="bg-glow"></div>
+    <nav class="navbar">
+        <a href="#" class="logo">🚀 TeleFile<span>Stream</span></a>
+    </nav>
+
+    <div class="main-container">
+        <div class="content-card">
+            <div id="player-view" class="player-view">
+                <div id="art-app" style="width:100%; height:100%;"></div>
+            </div>
+            <div id="file-view" class="file-view">
+                <span class="file-icon">📁</span>
+                <h2 id="file-title">Detecting File...</h2>
+                <p style="color:rgba(255,255,255,0.5)">This is a direct cloud-hosted file. Click below to download at full speed.</p>
+            </div>
+        </div>
+
+        <div class="action-container">
+            <a href="{download_url}" class="btn btn-primary">
+                <span>⬇️</span> Download File Now
+            </a>
+            <a href="https://t.me/TeleFileStream_bot" class="btn btn-outline">
+                <span>🤖</span> Return to Bot
+            </a>
+        </div>
+    </div>
+
+    <script>
+        const streamUrl = "{stream_url}";
+        const isVideo = streamUrl.match(/\.(mp4|mkv|mov|avi|webm|m4v)$|stream/i);
+
+        if (isVideo) {{
+            document.getElementById('player-view').style.display = 'block';
+            document.getElementById('file-view').style.display = 'none';
+            
+            var art = new Artplayer({{
+                container: '#art-app',
+                url: streamUrl,
+                autoplay: true,
+                setting: true,
+                pip: true,
+                screenshot: true,
+                fullscreen: true,
+                theme: '#3498db',
+                icons: {{
+                    loading: '<img width="60" src="https://artplayer.org/assets/img/ploading.gif">',
+                    state: '<img width="100" src="https://artplayer.org/assets/img/state.svg">',
+                }},
+            }});
+        }} else {{
+            document.getElementById('file-title').innerText = "File Ready for Download";
+        }}
+    </script>
+</body>
+</html>
+""")
 
 @app.get("/watch/{encoded_id}")
 async def watch_player(encoded_id: str):
