@@ -3,7 +3,7 @@ StreamGobhar - Telegram File Streaming Service
 Production-ready for Vercel deployment
 """
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, BackgroundTasks
 from fastapi.responses import StreamingResponse, JSONResponse
 from telethon import TelegramClient
 from telethon.sessions import StringSession
@@ -120,13 +120,15 @@ async def set_webhook():
 # ============================================================================
 
 @app.post("/webhook")
-async def webhook(request: Request):
+async def webhook(request: Request, background_tasks: BackgroundTasks):
     """Handle Telegram webhook updates"""
     try:
         update_data = await request.json()
-        await process_update(update_data)
+        print(f"📥 Received Update: {update_data}") # Log update for user to see in Vercel
+        background_tasks.add_task(process_update, update_data)
         return JSONResponse({"ok": True})
     except Exception as e:
+        print(f"❌ Webhook Error: {e}")
         return JSONResponse({"error": str(e)}, status_code=500)
 
 
@@ -141,7 +143,6 @@ async def process_update(update_data: dict):
     
     # Initialize bot
     bot = TelegramClient(StringSession(), API_ID, API_HASH)
-    await bot.start(bot_token=BOT_TOKEN)
     
     try:
         if 'message' not in update_data:
@@ -150,59 +151,73 @@ async def process_update(update_data: dict):
         message = update_data['message']
         chat_id = message['chat']['id']
         
+        # Start bot client
+        await bot.start(bot_token=BOT_TOKEN)
+        
         # Handle /start command
         if 'text' in message and message['text'] == '/start':
             await bot.send_message(
                 chat_id,
-                "👋 **Welcome to StreamGobhar!**\n\n"
-                "Send me any file or video, and I'll give you:\n"
-                "▶️ Stream link\n"
-                "⬇️ Download link\n\n"
-                "Ready when you are!"
+                "👋 **StreamGobhar is Active!**\n\n"
+                "I am running perfectly on Vercel.\n"
+                "Send me any file or video and I will host it for you!"
             )
             return
         
         # Handle file/video uploads
-        if 'document' in message or 'video' in message:
-            msg_id = message['message_id']
-            msg = await bot.get_messages(chat_id, ids=msg_id)
+        media = None
+        if 'document' in message:
+            media = message['document']['file_id']
+        elif 'video' in message:
+            media = message['video']['file_id']
+        elif 'audio' in message:
+            media = message['audio']['file_id']
+        
+        if media:
+            print(f"📤 Uploading media {media} to channel...")
+            # Upload to storage channel using file_id (fastest way)
+            uploaded_msg = await bot.send_file(BIN_CHANNEL, media)
             
-            if msg and msg.file:
-                # Upload to storage channel
-                uploaded_msg = await bot.send_file(BIN_CHANNEL, msg.media)
-                
-                # Get message ID and encode it
-                target_msg_id = uploaded_msg.id
-                encoded_id = encode_id(target_msg_id)
-                
-                # Generate links
-                download_link = f"{BASE_URL}/download/{encoded_id}"
-                
-                # Check if video
+            # Get message ID and encode it
+            target_msg_id = uploaded_msg.id
+            encoded_id = encode_id(target_msg_id)
+            
+            # Generate links
+            download_link = f"{BASE_URL}/download/{encoded_id}"
+            
+            # Check if video for streaming link
+            is_video = False
+            if uploaded_msg.document:
                 is_video = any(
                     isinstance(attr, DocumentAttributeVideo)
                     for attr in uploaded_msg.document.attributes
                 )
-                
-                # Build response
-                if is_video:
-                    stream_link = f"{BASE_URL}/stream/{encoded_id}"
-                    response = (
-                        f"✅ **File uploaded successfully!**\n\n"
-                        f"📋 **File ID:** `{encoded_id}`\n\n"
-                        f"▶️ **Stream:** {stream_link}\n"
-                        f"⬇️ **Download:** {download_link}"
-                    )
-                else:
-                    response = (
-                        f"✅ **File uploaded successfully!**\n\n"
-                        f"📋 **File ID:** `{encoded_id}`\n\n"
-                        f"⬇️ **Download:** {download_link}"
-                    )
-                
-                await bot.send_message(chat_id, response)
+            
+            # Build response
+            if is_video:
+                stream_link = f"{BASE_URL}/stream/{encoded_id}"
+                response = (
+                    f"✅ **Host Successful!**\n\n"
+                    f"📋 **File ID:** `{encoded_id}`\n\n"
+                    f"▶️ **Stream:** {stream_link}\n"
+                    f"⬇️ **Download:** {download_link}"
+                )
             else:
-                await bot.send_message(chat_id, "❌ Please send a valid file.")
+                response = (
+                    f"✅ **Host Successful!**\n\n"
+                    f"📋 **File ID:** `{encoded_id}`\n\n"
+                    f"⬇️ **Download:** {download_link}"
+                )
+            
+            await bot.send_message(chat_id, response)
+            print(f"✅ Response sent to {chat_id}")
+    
+    except Exception as e:
+        print(f"❌ Processing Error: {e}")
+        traceback.print_exc()
+    
+    finally:
+        await bot.disconnect()
     
     finally:
         await bot.disconnect()
