@@ -136,9 +136,10 @@ async def handle_update_logic(bot, message):
         # 3. Handle Media
         media = None
         if is_dict:
-            # Need to fetch media via MTProto for Webhook mode
-            if any(k in message for k in ['document', 'video', 'audio', 'photo']):
-                print(f"🔄 Fetching media object for {msg_id}...")
+            # Check for media in the dictionary structure
+            media_info = message.get('document') or message.get('video') or message.get('audio') or message.get('photo')
+            if media_info:
+                print(f"🔄 Media found in dict. Fetching object for {msg_id}...")
                 full_msg = await bot.get_messages(chat_id, ids=msg_id)
                 media = full_msg.media if full_msg else None
         else:
@@ -274,14 +275,19 @@ async def webhook(request: Request):
         text = (msg.get('text') or msg.get('caption') or "").strip()
         has_media = any(k in msg for k in ['document', 'video', 'audio', 'photo'])
 
+        # 🛑 LOOP PREVENTION: Ignore messages from BIN_CHANNEL
+        if chat_id == BIN_CHANNEL:
+            print(f"🚫 Ignoring message from BIN_CHANNEL ({chat_id})")
+            return {"ok": True, "info": "loop_blocked_channel"}
+
         # 🎯 FAST PATH: Handle text commands without reaching MTProto (Sub-second response)
         if text.startswith('/') or (not has_media and text):
             if text.startswith('/start'):
-                welcome = "👋 **StreamGobhar v4.0 (Stable)**\n\nI am running on Vercel with **Fast-Path** enabled. Send me a file or video to host it!"
+                welcome = "👋 **StreamGobhar v4.1 (Stability Patch)**\n\nI am running on Vercel with **Loop-Prevention**. Send me a file or video to host it!"
                 await send_text_fast(chat_id, welcome)
                 return {"ok": True, "path": "fast_path_start"}
             
-            # Catch-all for other text
+            # Catch-all for other text without media
             if not has_media:
                 await send_text_fast(chat_id, "ℹ️ Please send a **file** or **video** to get a link!")
                 return {"ok": True, "path": "fast_path_info"}
