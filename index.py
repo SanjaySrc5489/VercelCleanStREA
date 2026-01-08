@@ -415,7 +415,9 @@ async def video_landing_page(encoded_id: str):
         .navbar {{ padding: 20px 5%; display: flex; align-items: center; background: var(--glass); border-bottom: 1px solid var(--border); }}
         .logo {{ font-weight: 600; font-size: 22px; color: var(--primary); text-decoration: none; }}
         .main {{ max-width: 1100px; margin: 20px auto 0; padding: 0 20px; text-align: center; display: flex; flex-direction: column; min-height: calc(100vh - 80px); justify-content: center; }}
-        .player-box {{ border-radius: 20px; overflow: hidden; box-shadow: 0 40px 100px #000; border: 1px solid var(--border); height: 70vh; max-height: 600px; background: #000; }}
+        .player-box {{ position: relative; border-radius: 20px; overflow: hidden; box-shadow: 0 40px 100px #000; border: 1px solid var(--border); height: 70vh; max-height: 600px; background: #000; width: 100%; }}
+        #art-app {{ position: absolute; top: 0; left: 0; width: 100%; height: 100%; }}
+        #art-app video {{ object-fit: contain; }}
         .btn {{ margin-top: 30px; padding: 16px 40px; border-radius: 50px; font-weight: 600; background: linear-gradient(135deg, #3498db, #2980b9); color: #fff; text-decoration: none; display: inline-flex; align-items: center; gap: 10px; transition: 0.3s; }}
         .btn:hover {{ transform: translateY(-3px); box-shadow: 0 10px 20px rgba(52, 152, 219, 0.3); }}
         @media (max-width: 768px) {{ .player-box {{ height: 35vh; }} .btn {{ width: 100%; justify-content: center; box-sizing: border-box; }} }}
@@ -435,11 +437,20 @@ async def video_landing_page(encoded_id: str):
             url: '{stream_url}',
             type: 'mp4',
             autoplay: true,
-            autoSize: true,
+            aspectRatio: true,
             setting: true,
             pip: true,
             screenshot: true,
             fullscreen: true,
+            fullscreenWeb: true,
+            playbackRate: true,
+            subtitle: {{
+                url: '',
+                style: {{
+                    color: '#fff',
+                    fontSize: '20px',
+                }},
+            }},
             theme: '#3498db',
             moreVideoAttr: {{
                 crossOrigin: 'anonymous',
@@ -451,10 +462,31 @@ async def video_landing_page(encoded_id: str):
                 loading: '<img width="60" src="https://artplayer.org/assets/img/ploading.gif">', 
                 state: '<img width="100" src="https://artplayer.org/assets/img/state.svg">' 
             }},
+            controls: [
+                {{
+                    position: 'right',
+                    html: 'Quality',
+                    tooltip: 'Original Quality',
+                    click: function() {{
+                        art.notice.show = 'Playing at Original Quality';
+                    }}
+                }}
+            ]
         }});
+        
+        art.on('ready', () => {{
+            // Auto-adjust player size for vertical videos
+            const video = art.video;
+            if (video.videoHeight > video.videoWidth) {{
+                // Portrait/Reel video - limit width
+                document.querySelector('.player-box').style.maxWidth = '500px';
+                document.querySelector('.player-box').style.margin = '0 auto';
+                document.querySelector('.player-box').style.height = '75vh';
+            }}
+        }});
+        
         art.on('error', (err) => {{
             console.error('ArtPlayer Error:', err);
-            // Auto-reload on fatal errors if it's a reconnection loop
             setTimeout(() => {{ art.url = art.url; }}, 2000);
         }});
     </script>
