@@ -414,8 +414,8 @@ async def video_landing_page(encoded_id: str):
         .bg {{ position: fixed; top:0; left:0; width:100%; height:100%; background: radial-gradient(circle at 50% 50%, #1e3a8a 0%, transparent 50%); opacity:0.3; z-index:-1; }}
         .navbar {{ padding: 20px 5%; display: flex; align-items: center; background: var(--glass); border-bottom: 1px solid var(--border); }}
         .logo {{ font-weight: 600; font-size: 22px; color: var(--primary); text-decoration: none; }}
-        .main {{ max-width: 1100px; margin: 40px auto; padding: 0 20px; text-align: center; }}
-        .player-box {{ border-radius: 20px; overflow: hidden; box-shadow: 0 40px 100px #000; border: 1px solid var(--border); height: 65vh; background: #000; }}
+        .main {{ max-width: 1100px; margin: 20px auto 0; padding: 0 20px; text-align: center; display: flex; flex-direction: column; min-height: calc(100vh - 80px); justify-content: center; }}
+        .player-box {{ border-radius: 20px; overflow: hidden; box-shadow: 0 40px 100px #000; border: 1px solid var(--border); height: 70vh; max-height: 600px; background: #000; }}
         .btn {{ margin-top: 30px; padding: 16px 40px; border-radius: 50px; font-weight: 600; background: linear-gradient(135deg, #3498db, #2980b9); color: #fff; text-decoration: none; display: inline-flex; align-items: center; gap: 10px; transition: 0.3s; }}
         .btn:hover {{ transform: translateY(-3px); box-shadow: 0 10px 20px rgba(52, 152, 219, 0.3); }}
         @media (max-width: 768px) {{ .player-box {{ height: 35vh; }} .btn {{ width: 100%; justify-content: center; box-sizing: border-box; }} }}
