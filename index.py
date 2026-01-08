@@ -157,7 +157,18 @@ async def handle_update_logic(message):
 
         # 2. Handle Commands
         if text.startswith('/start'):
-            welcome = "👋 **StreamGobhar v5.0 (Ultra-Stable)**\n\nI am now running on **Bot-API First** architecture. Send me any file or video!"
+            welcome = (
+                "� **Welcome to TeleFileStream!**\n\n"
+                "The most powerful file streaming bot on Telegram. Send any file or video to get instant High-Speed Stream & Download links.\n\n"
+                "💎 **Features:**\n"
+                "• **Instant Hosting**: Direct copy to cloud.\n"
+                "• **No Limits**: Host any file size.\n"
+                "• **Pure Streaming**: Play videos without downloading.\n"
+                "• **Secure**: Your files are protected.\n\n"
+                "📢 **Channel:** @TeleFileStream\n"
+                "🛠️ **Powered by:** [telestream.vercel.app](https://telestream.vercel.app)\n\n"
+                "✨ *Just send me a file to begin!*"
+            )
             await send_text_fast(chat_id, welcome)
             return
 
@@ -316,7 +327,8 @@ class TelegramStreamWrapper:
             await self.client.disconnect()
 
 @app.get("/stream/{encoded_id}")
-async def stream_video(encoded_id: str, request: Request):
+async def stream_file(encoded_id: str, request: Request):
+    """Stream any supportable file (Videos, Audios, etc)"""
     try:
         msg_id = decode_id(encoded_id)
         if not SESSION_STRING: return JSONResponse({"error": "SESSION_STRING missing"}, status_code=500)
@@ -327,9 +339,12 @@ async def stream_video(encoded_id: str, request: Request):
         msg = await client.get_messages(BIN_CHANNEL, ids=msg_id)
         if not msg or not msg.document:
             await client.disconnect()
-            return JSONResponse({"error": "File not found"}, status_code=404)
+            return JSONResponse({"error": "File or Document not found in channel"}, status_code=404)
         
         size = msg.document.size
+        # Get mime type if available
+        mime = msg.document.mime_type or "application/octet-stream"
+        
         range_header = request.headers.get('range', '')
         start, end = 0, size - 1
         
@@ -340,10 +355,10 @@ async def stream_video(encoded_id: str, request: Request):
             end = min(end, size - 1)
         
         length = end - start + 1
-        dl_iter = client.iter_download(msg.document, offset=start, limit=length, chunk_size=1024*512)
+        dl_iter = client.iter_download(msg.document, offset=start, limit=length, chunk_size=1024*1024)
         
         headers = {
-            'Content-Type': 'video/mp4',
+            'Content-Type': mime,
             'Content-Length': str(length),
             'Accept-Ranges': 'bytes',
         }
@@ -355,32 +370,40 @@ async def stream_video(encoded_id: str, request: Request):
             
         return StreamingResponse(TelegramStreamWrapper(client, dl_iter), status_code=status, headers=headers)
     except Exception as e:
+        print(f"🔥 Stream Error: {e}")
         return JSONResponse({"error": str(e)}, status_code=500)
 
 @app.get("/download/{encoded_id}")
 async def download_file(encoded_id: str, request: Request):
+    """Download any file type (Zip, PDF, APK, etc)"""
     try:
         msg_id = decode_id(encoded_id)
+        if not SESSION_STRING: return JSONResponse({"error": "SESSION_STRING missing"}, status_code=500)
+
         client = TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH)
         await client.start()
         
         msg = await client.get_messages(BIN_CHANNEL, ids=msg_id)
         if not msg or not msg.document:
             await client.disconnect()
-            return JSONResponse({"error": "File not found"}, status_code=404)
+            return JSONResponse({"error": "File not found in channel"}, status_code=404)
             
+        # Extract Filename properly
         filename = "file"
         for attr in msg.document.attributes:
-            if hasattr(attr, "file_name"): filename = attr.file_name
+            if hasattr(attr, "file_name") and attr.file_name:
+                filename = attr.file_name
+                break
             
-        dl_iter = client.iter_download(msg.document, chunk_size=1024*512)
+        dl_iter = client.iter_download(msg.document, chunk_size=1024*1024)
         headers = {
-            'Content-Type': 'application/octet-stream',
+            'Content-Type': msg.document.mime_type or 'application/octet-stream',
             'Content-Disposition': f'attachment; filename="{filename}"',
             'Content-Length': str(msg.document.size),
         }
         return StreamingResponse(TelegramStreamWrapper(client, dl_iter), headers=headers)
     except Exception as e:
+        print(f"🔥 Download Error: {e}")
         return JSONResponse({"error": str(e)}, status_code=500)
 
 
