@@ -158,16 +158,16 @@ async def handle_update_logic(message):
         # 2. Handle Commands
         if text.startswith('/start'):
             welcome = (
-                "� **Welcome to TeleFileStream!**\n\n"
-                "The most powerful file streaming bot on Telegram. Send any file or video to get instant High-Speed Stream & Download links.\n\n"
+                "🚀 **Welcome to TeleFileStream!**\n\n"
+                "The most powerful file hosting and streaming bot on Telegram. Send any file or video to get instant High-Speed Stream & Download links.\n\n"
                 "💎 **Features:**\n"
-                "• **Instant Hosting**: Direct copy to cloud.\n"
-                "• **No Limits**: Host any file size.\n"
-                "• **Pure Streaming**: Play videos without downloading.\n"
-                "• **Secure**: Your files are protected.\n\n"
+                "• **Instant Hosting**: Direct copy to cloud channel.\n"
+                "• **Unlimited Stream**: Play videos directly in player.\n"
+                "• **Fast Download**: Get direct high-speed links.\n"
+                "• **Zero Latency**: Powered by Bot-API v5.3.\n\n"
                 "📢 **Channel:** @TeleFileStream\n"
-                "🛠️ **Powered by:** [telestream.vercel.app](https://telestream.vercel.app)\n\n"
-                "✨ *Just send me a file to begin!*"
+                "🌐 **Web:** [telestream.vercel.app](https://telestream.vercel.app)\n\n"
+                "✨ *Pulse a file to begin!*"
             )
             await send_text_fast(chat_id, welcome)
             return
