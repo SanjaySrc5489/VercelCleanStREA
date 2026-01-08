@@ -348,52 +348,106 @@ class TelegramStreamWrapper:
 
 @app.get("/watch/{encoded_id}")
 async def watch_player(encoded_id: str):
-    """Cinematic Web Player for TeleFileStream (ArtPlayer)"""
+    """Instant-Load Cinematic Web Player (ArtPlayer)"""
     stream_url = f"{BASE_URL}/stream/{encoded_id}"
     return HTMLResponse(content=f"""
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>TeleFileStream | Cinematic Player</title>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TeleFileStream | Premium Cinema</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap">
     <script src="https://cdn.jsdelivr.net/npm/artplayer/dist/artplayer.js"></script>
     <style>
+        :root {{
+            --primary: #3498db;
+            --bg: #05070a;
+            --accent: #2ecc71;
+        }}
         body {{ 
-            background: radial-gradient(circle at center, #1a1c24 0%, #0b0e14 100%); 
-            margin: 0; padding: 0; color: #fff; font-family: 'Inter', sans-serif;
-            display: flex; flex-direction: column; height: 100vh;
+            background: var(--bg);
+            margin: 0; padding: 0; 
+            color: #fff; 
+            font-family: 'Outfit', sans-serif;
+            overflow-x: hidden;
         }}
-        .navbar {{ padding: 15px 30px; display: flex; align-items: center; background: rgba(0,0,0,0.3); backdrop-filter: blur(10px); }}
-        .navbar .logo {{ font-weight: 600; font-size: 20px; color: #3498db; text-decoration: none; }}
-        .player-container {{ flex: 1; display: flex; justify-content: center; align-items: center; padding: 20px; box-sizing: border-box; }}
-        .artplayer-app {{ 
-            width: 100%; max-width: 1100px; height: 600px; 
-            border-radius: 12px; overflow: hidden; 
-            box-shadow: 0 30px 60px rgba(0,0,0,0.8);
-            border: 1px solid rgba(255,255,255,0.05);
+        /* Animated Background */
+        .bg-glow {{
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: radial-gradient(circle at 50% 50%, #1e3a8a 0%, transparent 50%),
+                        radial-gradient(circle at 80% 20%, #1e1b4b 0%, transparent 30%);
+            opacity: 0.3; z-index: -1; animation: pulse 10s infinite alternate;
         }}
-        @media (max-width: 768px) {{ .artplayer-app {{ height: 300px; }} }}
+        @keyframes pulse {{ from {{ transform: scale(1); }} to {{ transform: scale(1.1); }} }}
+
+        .navbar {{ 
+            padding: 20px 5%; display: flex; align-items: center; justify-content: space-between;
+            background: rgba(255,255,255,0.03); backdrop-filter: blur(15px);
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }}
+        .logo {{ font-weight: 600; font-size: 22px; color: var(--primary); text-decoration: none; display: flex; align-items: center; gap: 10px; }}
+        .logo span {{ color: #fff; }}
+
+        .main-container {{ 
+            max-width: 1200px; margin: 40px auto; padding: 0 20px;
+        }}
+        
+        .player-wrapper {{
+            position: relative; border-radius: 20px; overflow: hidden;
+            box-shadow: 0 40px 100px rgba(0,0,0,0.8);
+            border: 1px solid rgba(255,255,255,0.1);
+            background: #000; height: 65vh;
+        }}
+        .artplayer-app {{ width: 100%; height: 100%; }}
+
+        .info-card {{
+            margin-top: 30px; padding: 25px;
+            background: rgba(255,255,255,0.03); border-radius: 20px;
+            backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.05);
+        }}
+        .info-card h2 {{ margin: 0; font-size: 24px; color: #fff; }}
+        .info-card p {{ color: rgba(255,255,255,0.6); line-height: 1.6; margin: 10px 0 0; }}
+        
+        .badge {{
+            display: inline-block; padding: 5px 12px; border-radius: 20px;
+            font-size: 12px; background: rgba(52, 152, 219, 0.2);
+            color: var(--primary); border: 1px solid rgba(52, 152, 219, 0.3);
+            margin-bottom: 10px;
+        }}
+
+        @media (max-width: 768px) {{ .player-wrapper {{ height: 35vh; }} }}
     </style>
 </head>
 <body>
-    <div class="navbar">
-        <a href="#" class="logo">🚀 TeleFileStream Pro</a>
+    <div class="bg-glow"></div>
+    <nav class="navbar">
+        <a href="#" class="logo">🚀 TeleFile<span>Stream</span></a>
+        <div style="font-size: 14px; color: rgba(255,255,255,0.5);">Pro Cinema Mode</div>
+    </nav>
+
+    <div class="main-container">
+        <div class="badge">Direct Cloud Link</div>
+        <div class="player-wrapper">
+            <div class="artplayer-app"></div>
+        </div>
+
+        <div class="info-card">
+            <h2>Ready to Play</h2>
+            <p>Your content is served directly from Telegram servers with zero buffering. Use the settings icon in the player to toggle Audio tracks and Subtitles.</p>
+        </div>
     </div>
-    <div class="player-container">
-        <div class="artplayer-app"></div>
-    </div>
+
     <script>
         var art = new Artplayer({{
             container: '.artplayer-app',
             url: '{stream_url}',
-            title: 'TeleFileStream Video',
+            title: 'Cinematic Stream',
             poster: 'https://telestream.vercel.app/logo.png',
             volume: 0.7,
             isLive: false,
             muted: false,
-            autoplay: false,
+            autoplay: true,
             pip: true,
             autoSize: true,
             autoMini: true,
@@ -405,7 +459,6 @@ async def watch_player(encoded_id: str):
             aspectRatio: true,
             fullscreen: true,
             fullscreenWeb: true,
-            subtitleOffset: true,
             miniProgressBar: true,
             mutex: true,
             backdrop: true,
@@ -414,25 +467,17 @@ async def watch_player(encoded_id: str):
             airplay: true,
             theme: '#3498db',
             lang: 'en',
-            settings: [
-                {{
-                    html: 'Audio Select',
-                    icon: '<img width="22" height="22" src="https://artplayer.org/assets/img/state.svg">',
-                    tooltip: 'Default',
-                    switch: false,
-                }},
-            ],
             icons: {{
-                loading: '<img src="https://artplayer.org/assets/img/ploading.gif">',
-                state: '<img width="150" height="150" src="https://artplayer.org/assets/img/state.svg">',
-                indicator: '<img width="16" height="16" src="https://artplayer.org/assets/img/indicator.svg">',
+                loading: '<img width="60" src="https://artplayer.org/assets/img/ploading.gif">',
+                state: '<img width="100" src="https://artplayer.org/assets/img/state.svg">',
+            }},
+            moreVideoAttr: {{
+                crossOrigin: 'anonymous',
             }},
         }});
-        
-        // Handle Errors gracefully
-        art.on('error', function (err) {{
-            console.error('Player Error:', err);
-            // Fallback for some codecs if needed
+
+        art.on('ready', () => {{
+            console.info("Player ready and streaming...");
         }});
     </script>
 </body>
