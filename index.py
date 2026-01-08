@@ -87,43 +87,65 @@ async def setup_bot():
 async def handle_update_logic(bot, message):
     """Core logic to handle a message (used by both polling and webhook)"""
     try:
-        chat_id = message.get('chat', {}).get('id') if isinstance(message, dict) else message.chat_id
-        if not chat_id: return
-
-        # Handle /start
-        text = message.get('text', '') if isinstance(message, dict) else (message.text or "")
-        if text == '/start':
-            await bot.send_message(chat_id, "👋 **StreamGobhar is Online!**\n\nI can host your files perfectly. Send me any file!")
+        # 1. Extract chat_id
+        is_dict = isinstance(message, dict)
+        chat_id = message.get('chat', {}).get('id') if is_dict else message.chat_id
+        if not chat_id:
+            print("⚠️ Could not extract chat_id")
             return
 
-        # Handle Media
-        media = None
-        if isinstance(message, dict):
-            if 'document' in message: media = message['document']['file_id']
-            elif 'video' in message: media = message['video']['file_id']
-            elif 'photo' in message: media = message['photo'][-1]['file_id']
+        # 2. Extract text/command
+        text = (message.get('text') or message.get('caption') or "") if is_dict else (message.text or message.caption or "")
+        print(f"📩 Processing message from {chat_id}: '{text[:20]}...'")
+
+        # 3. Handle /start
+        if text.startswith('/start'):
+            await bot.send_message(
+                chat_id, 
+                "👋 **StreamGobhar is Active!**\n\n"
+                "I am now running on Vercel 24/7.\n"
+                "**How to use:** Send me any file or video, and I'll host it for you!"
+            )
+            print(f"✅ Sent welcome to {chat_id}")
+            return
+
+        # 4. Handle Media
+        # If it's a dict (Webhook mode), we need to fetch it via MTProto to get the media object
+        if is_dict:
+            if any(k in message for k in ['document', 'video', 'photo', 'audio']):
+                msg_id = message['message_id']
+                print(f"🔄 Fetching MTProto message for ID {msg_id}...")
+                full_msg = await bot.get_messages(chat_id, ids=msg_id)
+                media = full_msg.media if full_msg else None
+            else:
+                media = None
         else:
-            if message.media: media = message.media
+            media = message.media
 
         if media:
+            print(f"📤 Uploading media to storage channel...")
             sent_msg = await bot.send_file(BIN_CHANNEL, media)
             encoded_id = encode_id(sent_msg.id)
             
-            # Use detected BASE_URL
+            # Generate links
             stream_link = f"{BASE_URL}/stream/{encoded_id}"
             download_link = f"{BASE_URL}/download/{encoded_id}"
             
             response = (
-                f"✅ **File Hosted!**\n\n"
-                f"📋 **ID:** `{encoded_id}`\n"
+                f"✅ **File Hosted Successfully!**\n\n"
+                f"📋 **File ID:** `{encoded_id}`\n\n"
                 f"▶️ **Stream:** {stream_link}\n"
                 f"⬇️ **Download:** {download_link}"
             )
             await bot.send_message(chat_id, response)
-            print(f"✅ Success for chat {chat_id}")
+            print(f"🔥 Successfully sent hosted links to {chat_id}")
+        else:
+            if not text.startswith('/'):
+                await bot.send_message(chat_id, "ℹ️ Please send a **file** or **video** to get a link!")
             
     except Exception as e:
-        print(f"❌ Error in logic: {e}")
+        print(f"❌ Error in handle_update_logic: {e}")
+        traceback.print_exc()
 
 # ============================================================================
 # WEBHOOK ENDPOINTS
@@ -194,19 +216,29 @@ async def set_webhook():
 
 @app.post("/webhook")
 async def webhook(request: Request):
+    """Telegram Webhook entry point"""
     try:
         update = await request.json()
-        print(f"📥 Received Update: {update}")
-        if 'message' in update or 'channel_post' in update:
-            msg = update.get('message') or update.get('channel_post')
+        print(f"� Webhook Received: {list(update.keys())}")
+        
+        # Check for message or channel post
+        msg = update.get('message') or update.get('channel_post') or update.get('edited_message')
+        
+        if msg:
+            print(f"🎯 Valid update found, starting bot session...")
             bot = await setup_bot()
             try:
                 await handle_update_logic(bot, msg)
             finally:
                 await bot.disconnect()
+                print("💤 Bot session closed.")
+        else:
+            print("ℹ️ No 'message' or 'channel_post' in update payload.")
+            
     except Exception as e:
         print(f"❌ Webhook Critical Error: {e}")
         traceback.print_exc()
+    
     return {"ok": True}
 
 
