@@ -28,7 +28,25 @@ if VERCEL_URL:
 else:
     BASE_URL = os.getenv("BASE_URL", "http://localhost:9090")
 
+# Secret key for ID obfuscation (XOR encoding)
+SECRET_KEY = int(os.getenv("SECRET_KEY", "742658931"))
+
 app = FastAPI(title="StreamGobhar API", version="2.0.0")
+
+
+def encode_id(msg_id: int) -> str:
+    """Encode message ID using XOR for obfuscation"""
+    obfuscated = msg_id ^ SECRET_KEY
+    return hex(obfuscated)[2:]  # Remove '0x' prefix
+
+
+def decode_id(encoded_id: str) -> int:
+    """Decode obfuscated ID back to message ID"""
+    try:
+        obfuscated = int(encoded_id, 16)
+        return obfuscated ^ SECRET_KEY
+    except ValueError:
+        raise ValueError(f"Invalid ID format: {encoded_id}")
 
 
 class TelegramStreamWrapper:
@@ -139,9 +157,10 @@ async def process_update(update_data: dict, request: Request):
             if msg and msg.file:
                 # Upload to storage channel
                 uploaded_msg = await bot.send_file(BIN_CHANNEL, msg.media)
-                
-                # Generate links
-                download_link = f"{base_url}/download/{uploaded_msg.id}"
+                # Generate links with obfuscated ID
+                msg_id = uploaded_msg.id
+                encoded_id = encode_id(msg_id)
+                download_link = f"{base_url}/download/{encoded_id}"
                 
                 # Check if video
                 is_video = any(
@@ -150,7 +169,7 @@ async def process_update(update_data: dict, request: Request):
                 )
                 
                 if is_video:
-                    stream_link = f"{base_url}/stream/{uploaded_msg.id}"
+                    stream_link = f"{base_url}/stream/{encoded_id}"
                     await bot.send_message(
                         chat_id,
                         f"✅ File uploaded!\n\n"
@@ -174,9 +193,21 @@ async def process_update(update_data: dict, request: Request):
 # STREAM ENDPOINT
 # ============================================================================
 
-@app.get("/stream/{msg_id}")
-async def stream_video(msg_id: int, request: Request):
+@app.get("/stream/{encoded_id}")
+async def stream_video(encoded_id: str, request: Request):
     """Stream video with range request support"""
+    
+    # Decode message ID
+    try:
+        msg_id = decode_id(encoded_id)
+    except ValueError as e:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "error": "Invalid ID",
+                "details": str(e)
+            }
+        )
     
     # Check environment variables
     if not API_ID or not API_HASH:
@@ -297,9 +328,21 @@ async def stream_video(msg_id: int, request: Request):
 # DOWNLOAD ENDPOINT
 # ============================================================================
 
-@app.get("/download/{msg_id}")
-async def download_file(msg_id: int, request: Request):
+@app.get("/download/{encoded_id}")
+async def download_file(encoded_id: str, request: Request):
     """Download file with proper headers"""
+    
+    # Decode message ID
+    try:
+        msg_id = decode_id(encoded_id)
+    except ValueError as e:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "error": "Invalid ID",
+                "details": str(e)
+            }
+        )
     
     # Check environment variables
     if not API_ID or not API_HASH:
