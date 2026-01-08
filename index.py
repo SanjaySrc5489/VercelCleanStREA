@@ -234,7 +234,7 @@ async def handle_update_logic(message):
 
             # Step 3: Generate links & Meta Detection
             encoded_id = encode_id(new_msg_id)
-            download_link = f"{BASE_URL}/download/{encoded_id}"
+            download_link = f"{BASE_URL}/f/{encoded_id}"
             
             # Detect Content Type (Media vs File)
             filename = "file"
