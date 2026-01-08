@@ -47,6 +47,7 @@ app = FastAPI(title="StreamGobhar API", version="3.0.0")
 # Global for simple diagnostics
 LAST_LOG = "No events yet"
 FLOOD_WAIT_UNTIL = 0  # Timestamp when we can try again
+STARTUP_TIME = int(__import__('time').time()) # Ignore messages before this
 
 def get_now():
     import time
@@ -119,7 +120,13 @@ async def handle_update_logic(bot, message):
         is_dict = isinstance(message, dict)
         chat_id = message.get('chat', {}).get('id') if is_dict else message.chat_id
         msg_id = message.get('message_id') if is_dict else message.id
+        date = message.get('date') if is_dict else (message.date.timestamp() if hasattr(message.date, 'timestamp') else 0)
         text = (message.get('text') or message.get('caption') or "") if is_dict else (message.text or message.caption or "")
+
+        # 🕒 Backlog Filter: Ignore messages older than bot startup
+        if date < STARTUP_TIME:
+            print(f"⏩ Skipping old message {msg_id} (Date: {date} < {STARTUP_TIME})")
+            return
 
         LAST_LOG = f"Processing msg {msg_id} from {chat_id}"
         print(f"📩 {LAST_LOG}")
