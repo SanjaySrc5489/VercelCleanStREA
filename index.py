@@ -120,15 +120,19 @@ async def set_webhook():
 # ============================================================================
 
 @app.post("/webhook")
-async def webhook(request: Request, background_tasks: BackgroundTasks):
+async def webhook(request: Request):
     """Handle Telegram webhook updates"""
     try:
         update_data = await request.json()
-        print(f"📥 Received Update: {update_data}") # Log update for user to see in Vercel
-        background_tasks.add_task(process_update, update_data)
+        print(f"📥 Incoming: {update_data}")
+        
+        # Await directly - BackgroundTasks can be killed prematurely on Vercel
+        await process_update(update_data)
+        
         return JSONResponse({"ok": True})
     except Exception as e:
-        print(f"❌ Webhook Error: {e}")
+        print(f"❌ Webhook Crash: {e}")
+        traceback.print_exc()
         return JSONResponse({"error": str(e)}, status_code=500)
 
 
@@ -145,26 +149,34 @@ async def process_update(update_data: dict):
     bot = TelegramClient(StringSession(), API_ID, API_HASH)
     
     try:
-        if 'message' not in update_data:
+        # Detect message or channel post
+        if 'message' in update_data:
+            message = update_data['message']
+        elif 'channel_post' in update_data:
+            message = update_data['channel_post']
+        else:
+            print("ℹ️ Update is not a message/post, ignoring.")
             return
             
-        message = update_data['message']
         chat_id = message['chat']['id']
         
         # Start bot client
         await bot.start(bot_token=BOT_TOKEN)
+        print(f"🤖 Bot started for chat_id: {chat_id}")
         
         # Handle /start command
-        if 'text' in message and message['text'] == '/start':
+        text = message.get('text', '')
+        if text == '/start':
             await bot.send_message(
                 chat_id,
-                "👋 **StreamGobhar is Active!**\n\n"
-                "I am running perfectly on Vercel.\n"
-                "Send me any file or video and I will host it for you!"
+                "👋 **StreamGobhar is Online!**\n\n"
+                "I am running on Vercel.\n"
+                "Send me any file and I'll host it for you!"
             )
+            print(f"✅ Sent /start response to {chat_id}")
             return
         
-        # Handle file/video uploads
+        # Handle media
         media = None
         if 'document' in message:
             media = message['document']['file_id']
@@ -172,6 +184,9 @@ async def process_update(update_data: dict):
             media = message['video']['file_id']
         elif 'audio' in message:
             media = message['audio']['file_id']
+        elif 'photo' in message:
+            # Photos come as a list of sizes, take the largest
+            media = message['photo'][-1]['file_id']
         
         if media:
             print(f"📤 Uploading media {media} to channel...")
