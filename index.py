@@ -721,24 +721,7 @@ async def video_landing_page(encoded_id: str):
             icons: {{
                 loading: '<div style="display:flex;align-items:center;justify-content:center;width:100%;height:100%"><div style="width:50px;height:50px;border:3px solid rgba(255,255,255,0.1);border-top-color:#6366f1;border-radius:50%;animation:spin 1s linear infinite"></div></div>',
                 state: '<svg width="80" height="80" viewBox="0 0 80 80"><circle cx="40" cy="40" r="38" fill="rgba(0,0,0,0.6)" stroke="rgba(255,255,255,0.2)" stroke-width="2"/><path d="M32 25 L58 40 L32 55 Z" fill="white"/></svg>'
-            }},
-            controls: [
-                {{
-                    position: 'right',
-                    html: '🎬 Quality',
-                    tooltip: 'Original HD Quality',
-                    style: {{
-                        padding: '0 12px',
-                        fontSize: '13px',
-                        background: 'rgba(99, 102, 241, 0.3)',
-                        borderRadius: '6px',
-                        marginRight: '8px'
-                    }},
-                    click: function() {{
-                        art.notice.show = '✨ Playing at Original Quality';
-                    }}
-                }}
-            ]
+            }}
         }});
         
         // Custom loading spinner keyframes
@@ -768,40 +751,626 @@ async def video_landing_page(encoded_id: str):
 
 @app.get("/f/{encoded_id}")
 async def file_landing_page(encoded_id: str):
-    """Direct Download Portal for Files"""
+    """Premium File Download Portal with Smart Type Detection"""
     download_url = f"{BASE_URL}/download/{encoded_id}"
+    
+    # Try to get file metadata for smart icon/theming
+    file_icon = "📦"
+    file_type = "File"
+    accent_color = "#6366f1"
+    accent_glow = "rgba(99, 102, 241, 0.4)"
+    btn_gradient = "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)"
+    btn_text = "Download Now"
+    
+    try:
+        msg_id = decode_id(encoded_id)
+        client = await get_client()
+        msg = await client.get_messages(BIN_CHANNEL, ids=msg_id)
+        if msg and msg.document:
+            filename = "file"
+            filesize = msg.document.size
+            for attr in msg.document.attributes:
+                if hasattr(attr, "file_name") and attr.file_name:
+                    filename = attr.file_name
+                    break
+            
+            # Smart file type detection
+            ext = filename.lower().split('.')[-1] if '.' in filename else ''
+            
+            if ext == 'apk':
+                file_icon = "🤖"
+                file_type = "Android App"
+                accent_color = "#3DDC84"
+                accent_glow = "rgba(61, 220, 132, 0.4)"
+                btn_gradient = "linear-gradient(135deg, #3DDC84 0%, #00C853 100%)"
+                btn_text = "Install APK"
+            elif ext in ('zip', 'rar', '7z', 'tar', 'gz'):
+                file_icon = "🗜️"
+                file_type = "Archive"
+                accent_color = "#f59e0b"
+                accent_glow = "rgba(245, 158, 11, 0.4)"
+                btn_gradient = "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)"
+                btn_text = "Download Archive"
+            elif ext == 'pdf':
+                file_icon = "📕"
+                file_type = "PDF Document"
+                accent_color = "#ef4444"
+                accent_glow = "rgba(239, 68, 68, 0.4)"
+                btn_gradient = "linear-gradient(135deg, #ef4444 0%, #dc2626 100%)"
+                btn_text = "Download PDF"
+            elif ext in ('doc', 'docx'):
+                file_icon = "📝"
+                file_type = "Word Document"
+                accent_color = "#2563eb"
+                accent_glow = "rgba(37, 99, 235, 0.4)"
+                btn_gradient = "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)"
+                btn_text = "Download Document"
+            elif ext in ('xls', 'xlsx', 'csv'):
+                file_icon = "📊"
+                file_type = "Spreadsheet"
+                accent_color = "#22c55e"
+                accent_glow = "rgba(34, 197, 94, 0.4)"
+                btn_gradient = "linear-gradient(135deg, #22c55e 0%, #16a34a 100%)"
+                btn_text = "Download Spreadsheet"
+            elif ext in ('ppt', 'pptx'):
+                file_icon = "📽️"
+                file_type = "Presentation"
+                accent_color = "#f97316"
+                accent_glow = "rgba(249, 115, 22, 0.4)"
+                btn_gradient = "linear-gradient(135deg, #f97316 0%, #ea580c 100%)"
+                btn_text = "Download Presentation"
+            elif ext in ('exe', 'msi'):
+                file_icon = "💿"
+                file_type = "Windows App"
+                accent_color = "#0ea5e9"
+                accent_glow = "rgba(14, 165, 233, 0.4)"
+                btn_gradient = "linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%)"
+                btn_text = "Download Installer"
+            elif ext in ('dmg', 'pkg'):
+                file_icon = "🍎"
+                file_type = "Mac App"
+                accent_color = "#a855f7"
+                accent_glow = "rgba(168, 85, 247, 0.4)"
+                btn_gradient = "linear-gradient(135deg, #a855f7 0%, #9333ea 100%)"
+                btn_text = "Download for Mac"
+            elif ext in ('iso', 'img'):
+                file_icon = "💽"
+                file_type = "Disk Image"
+                accent_color = "#64748b"
+                accent_glow = "rgba(100, 116, 139, 0.4)"
+                btn_gradient = "linear-gradient(135deg, #64748b 0%, #475569 100%)"
+                btn_text = "Download Image"
+            elif ext in ('ttf', 'otf', 'woff', 'woff2'):
+                file_icon = "🔤"
+                file_type = "Font File"
+                accent_color = "#ec4899"
+                accent_glow = "rgba(236, 72, 153, 0.4)"
+                btn_gradient = "linear-gradient(135deg, #ec4899 0%, #db2777 100%)"
+                btn_text = "Download Font"
+            elif ext in ('jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp'):
+                file_icon = "🖼️"
+                file_type = "Image"
+                accent_color = "#14b8a6"
+                accent_glow = "rgba(20, 184, 166, 0.4)"
+                btn_gradient = "linear-gradient(135deg, #14b8a6 0%, #0d9488 100%)"
+                btn_text = "Download Image"
+            elif ext == 'json':
+                file_icon = "📋"
+                file_type = "JSON Data"
+                accent_color = "#84cc16"
+                accent_glow = "rgba(132, 204, 22, 0.4)"
+                btn_gradient = "linear-gradient(135deg, #84cc16 0%, #65a30d 100%)"
+                btn_text = "Download JSON"
+            elif ext in ('txt', 'log', 'md'):
+                file_icon = "📄"
+                file_type = "Text File"
+                accent_color = "#6b7280"
+                accent_glow = "rgba(107, 114, 128, 0.4)"
+                btn_gradient = "linear-gradient(135deg, #6b7280 0%, #4b5563 100%)"
+                btn_text = "Download Text"
+            else:
+                file_icon = "📦"
+                file_type = f".{ext.upper()} File" if ext else "File"
+            
+            # Format file size
+            if filesize < 1024:
+                size_str = f"{filesize} B"
+            elif filesize < 1024*1024:
+                size_str = f"{filesize/1024:.1f} KB"
+            elif filesize < 1024*1024*1024:
+                size_str = f"{filesize/(1024*1024):.1f} MB"
+            else:
+                size_str = f"{filesize/(1024*1024*1024):.2f} GB"
+    except:
+        filename = "file"
+        size_str = "Unknown"
+        pass
+    
     return HTMLResponse(content=f"""
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TeleFileStream | Download</title>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🚀 {file_type} Download | TeleFileStream</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📦</text></svg>">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap">
     <style>
-        :root {{ --primary: #3498db; --bg: #05070a; --glass: rgba(255, 255, 255, 0.03); --border: rgba(255, 255, 255, 0.08); }}
-        body {{ background: var(--bg); margin: 0; padding: 0; color: #fff; font-family: 'Outfit', sans-serif; display: flex; flex-direction: column; min-height: 100vh; }}
-        .bg {{ position: fixed; top:0; left:0; width:100%; height:100%; background: radial-gradient(circle at 50% 50%, #1e1b4b 0%, transparent 50%); opacity:0.3; z-index:-1; }}
-        .navbar {{ padding: 20px 5%; display: flex; align-items: center; background: var(--glass); border-bottom: 1px solid var(--border); }}
-        .logo {{ font-weight: 600; font-size: 22px; color: var(--primary); text-decoration: none; }}
-        .main {{ flex: 1; display: flex; justify-content: center; align-items: center; padding: 20px; }}
-        .card {{ background: var(--glass); padding: 50px 30px; border-radius: 30px; border: 1px solid var(--border); backdrop-filter: blur(20px); text-align: center; max-width: 450px; width: 100%; }}
-        .icon {{ font-size: 80px; margin-bottom: 20px; display: block; }}
-        .btn {{ margin-top: 30px; padding: 18px 45px; border-radius: 50px; font-weight: 600; background: linear-gradient(135deg, #2ecc71, #27ae60); color: #fff; text-decoration: none; display: inline-flex; align-items: center; gap: 10px; transition: 0.3s; width: 100%; justify-content: center; box-sizing: border-box; }}
-        .btn:hover {{ transform: translateY(-3px); box-shadow: 0 10px 20px rgba(46, 204, 113, 0.3); }}
+        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+        :root {{
+            --primary: {accent_color};
+            --primary-glow: {accent_glow};
+            --accent: #22d3ee;
+            --bg-dark: #0a0a0f;
+            --bg-card: rgba(255, 255, 255, 0.03);
+            --border: rgba(255, 255, 255, 0.08);
+            --text: #f8fafc;
+            --text-muted: rgba(248, 250, 252, 0.5);
+        }}
+        
+        body {{
+            background: var(--bg-dark);
+            color: var(--text);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }}
+        
+        /* Animated Background */
+        .bg-effects {{
+            position: fixed;
+            inset: 0;
+            z-index: -1;
+            overflow: hidden;
+        }}
+        .bg-effects::before {{
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: 
+                radial-gradient(circle at 20% 80%, var(--primary-glow) 0%, transparent 40%),
+                radial-gradient(circle at 80% 20%, rgba(34, 211, 238, 0.1) 0%, transparent 40%),
+                radial-gradient(circle at 50% 50%, rgba(168, 85, 247, 0.08) 0%, transparent 30%);
+            animation: bgPulse 15s ease-in-out infinite alternate;
+        }}
+        @keyframes bgPulse {{
+            0% {{ transform: translate(0, 0) scale(1); opacity: 0.8; }}
+            100% {{ transform: translate(-5%, -5%) scale(1.1); opacity: 1; }}
+        }}
+        
+        /* Floating Particles */
+        .particles {{
+            position: fixed;
+            inset: 0;
+            z-index: -1;
+            overflow: hidden;
+        }}
+        .particle {{
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background: var(--primary);
+            border-radius: 50%;
+            opacity: 0.3;
+            animation: float 20s infinite linear;
+        }}
+        @keyframes float {{
+            0% {{ transform: translateY(100vh) rotate(0deg); opacity: 0; }}
+            10% {{ opacity: 0.3; }}
+            90% {{ opacity: 0.3; }}
+            100% {{ transform: translateY(-100vh) rotate(720deg); opacity: 0; }}
+        }}
+        
+        /* Premium Header */
+        .header {{
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            padding: 16px 24px;
+            background: rgba(10, 10, 15, 0.8);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }}
+        
+        .logo {{
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+        }}
+        .logo-icon {{
+            width: 42px;
+            height: 42px;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            box-shadow: 0 4px 20px var(--primary-glow);
+            animation: logoGlow 3s ease-in-out infinite alternate;
+        }}
+        @keyframes logoGlow {{
+            0% {{ box-shadow: 0 4px 20px var(--primary-glow); }}
+            100% {{ box-shadow: 0 4px 40px var(--primary-glow), 0 0 60px var(--primary-glow); }}
+        }}
+        .logo-text {{
+            font-size: 20px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #fff 0%, var(--accent) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }}
+        .logo-badge {{
+            padding: 4px 10px;
+            background: linear-gradient(135deg, var(--primary), #8b5cf6);
+            border-radius: 20px;
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: white;
+        }}
+        
+        /* Main Content */
+        .main {{
+            padding: 120px 24px 40px;
+            max-width: 600px;
+            margin: 0 auto;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }}
+        
+        /* Premium Card */
+        .card {{
+            width: 100%;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 28px;
+            padding: 48px 32px;
+            backdrop-filter: blur(20px);
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+            animation: cardEntrance 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+        }}
+        @keyframes cardEntrance {{
+            0% {{ opacity: 0; transform: translateY(40px) scale(0.95); }}
+            100% {{ opacity: 1; transform: translateY(0) scale(1); }}
+        }}
+        .card::before {{
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--primary), transparent);
+            opacity: 0.5;
+        }}
+        
+        /* File Icon Container */
+        .icon-container {{
+            position: relative;
+            width: 140px;
+            height: 140px;
+            margin: 0 auto 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }}
+        .icon-ring {{
+            position: absolute;
+            inset: 0;
+            border-radius: 50%;
+            border: 2px solid var(--primary);
+            opacity: 0.3;
+            animation: ringPulse 2s ease-in-out infinite;
+        }}
+        .icon-ring:nth-child(2) {{
+            animation-delay: 0.5s;
+            transform: scale(0.8);
+            opacity: 0.5;
+        }}
+        .icon-ring:nth-child(3) {{
+            animation-delay: 1s;
+            transform: scale(0.6);
+            opacity: 0.7;
+        }}
+        @keyframes ringPulse {{
+            0%, 100% {{ transform: scale(1); opacity: 0.3; }}
+            50% {{ transform: scale(1.1); opacity: 0.6; }}
+        }}
+        .file-icon {{
+            font-size: 72px;
+            animation: iconFloat 3s ease-in-out infinite;
+            position: relative;
+            z-index: 2;
+            filter: drop-shadow(0 10px 30px var(--primary-glow));
+        }}
+        @keyframes iconFloat {{
+            0%, 100% {{ transform: translateY(0); }}
+            50% {{ transform: translateY(-10px); }}
+        }}
+        
+        /* File Type Badge */
+        .type-badge {{
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 20px;
+            background: linear-gradient(135deg, var(--primary), rgba(var(--primary), 0.8));
+            background: {btn_gradient};
+            border-radius: 30px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 20px var(--primary-glow);
+        }}
+        
+        /* Title */
+        .title {{
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 12px;
+            background: linear-gradient(135deg, #fff 0%, rgba(255,255,255,0.7) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }}
+        
+        /* Filename */
+        .filename {{
+            font-size: 14px;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+            word-break: break-all;
+            padding: 12px 20px;
+            background: rgba(255,255,255,0.03);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            font-family: 'SF Mono', 'Fira Code', monospace;
+        }}
+        
+        /* File Meta */
+        .meta {{
+            display: flex;
+            justify-content: center;
+            gap: 24px;
+            margin: 24px 0;
+            flex-wrap: wrap;
+        }}
+        .meta-item {{
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            color: var(--text-muted);
+        }}
+        .meta-item span {{
+            color: var(--text);
+            font-weight: 600;
+        }}
+        
+        /* Premium Download Button */
+        .btn {{
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 14px;
+            width: 100%;
+            padding: 22px 40px;
+            border-radius: 18px;
+            font-size: 18px;
+            font-weight: 600;
+            text-decoration: none;
+            cursor: pointer;
+            border: none;
+            background: {btn_gradient};
+            color: white;
+            box-shadow: 0 10px 40px var(--primary-glow);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+            margin-top: 24px;
+        }}
+        .btn::before {{
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, transparent 0%, rgba(255,255,255,0.2) 50%, transparent 100%);
+            transform: translateX(-100%);
+            transition: transform 0.6s;
+        }}
+        .btn:hover {{
+            transform: translateY(-5px) scale(1.02);
+            box-shadow: 0 20px 60px var(--primary-glow);
+        }}
+        .btn:hover::before {{
+            transform: translateX(100%);
+        }}
+        .btn-icon {{
+            font-size: 24px;
+            animation: downloadBounce 1.5s infinite;
+        }}
+        @keyframes downloadBounce {{
+            0%, 100% {{ transform: translateY(0); }}
+            30% {{ transform: translateY(4px); }}
+            60% {{ transform: translateY(-2px); }}
+        }}
+        
+        /* Speed Indicator */
+        .speed-badge {{
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 20px;
+            padding: 10px 20px;
+            background: rgba(34, 197, 94, 0.1);
+            border: 1px solid rgba(34, 197, 94, 0.3);
+            border-radius: 30px;
+            font-size: 13px;
+            color: #22c55e;
+        }}
+        .speed-dot {{
+            width: 8px;
+            height: 8px;
+            background: #22c55e;
+            border-radius: 50%;
+            animation: blink 1s infinite;
+        }}
+        @keyframes blink {{
+            0%, 100% {{ opacity: 1; }}
+            50% {{ opacity: 0.3; }}
+        }}
+        
+        /* Feature Pills */
+        .features {{
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            margin-top: 32px;
+            flex-wrap: wrap;
+        }}
+        .feature {{
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 10px 18px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 30px;
+            font-size: 13px;
+            color: var(--text-muted);
+        }}
+        .feature-icon {{
+            font-size: 16px;
+        }}
+        
+        /* Footer */
+        .footer {{
+            margin-top: 40px;
+            text-align: center;
+        }}
+        .footer-text {{
+            color: var(--text-muted);
+            font-size: 13px;
+        }}
+        .footer-text a {{
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.3s;
+        }}
+        .footer-text a:hover {{
+            color: var(--accent);
+        }}
+        
+        /* Mobile Responsive */
+        @media (max-width: 768px) {{
+            .header {{ padding: 12px 16px; }}
+            .logo-text {{ font-size: 16px; }}
+            .logo-badge {{ display: none; }}
+            .main {{ padding: 100px 16px 24px; }}
+            .card {{ padding: 36px 24px; }}
+            .icon-container {{ width: 120px; height: 120px; }}
+            .file-icon {{ font-size: 56px; }}
+            .title {{ font-size: 22px; }}
+            .btn {{ padding: 18px 24px; font-size: 16px; }}
+            .meta {{ gap: 16px; }}
+            .features {{ gap: 8px; }}
+        }}
     </style>
 </head>
 <body>
-    <div class="bg"></div>
-    <nav class="navbar"><a href="#" class="logo">🚀 TeleFile<span>Stream</span></a></nav>
-    <div class="main">
-        <div class="card">
-            <span class="icon">📁</span>
-            <h2 style="margin:0 0 10px;">File Ready</h2>
-            <p style="color:rgba(255,255,255,0.5); margin:0;">Cloud-hosted file secure and verified. Click below for high-speed download.</p>
-            <a href="{download_url}" class="btn"><span>⬇️</span> Download File Now</a>
-            <div style="margin-top: 40px; color: rgba(255,255,255,0.3); font-size: 13px;">Made with ❤️ by <b>sanjay_src</b></div>
-        </div>
+    <div class="bg-effects"></div>
+    <div class="particles">
+        <div class="particle" style="left: 10%; animation-delay: 0s;"></div>
+        <div class="particle" style="left: 20%; animation-delay: 2s;"></div>
+        <div class="particle" style="left: 30%; animation-delay: 4s;"></div>
+        <div class="particle" style="left: 40%; animation-delay: 1s;"></div>
+        <div class="particle" style="left: 50%; animation-delay: 3s;"></div>
+        <div class="particle" style="left: 60%; animation-delay: 5s;"></div>
+        <div class="particle" style="left: 70%; animation-delay: 2.5s;"></div>
+        <div class="particle" style="left: 80%; animation-delay: 4.5s;"></div>
+        <div class="particle" style="left: 90%; animation-delay: 1.5s;"></div>
     </div>
+    
+    <header class="header">
+        <a href="/" class="logo">
+            <div class="logo-icon">🚀</div>
+            <span class="logo-text">TeleFileStream</span>
+            <span class="logo-badge">Premium</span>
+        </a>
+    </header>
+    
+    <main class="main">
+        <div class="card">
+            <div class="icon-container">
+                <div class="icon-ring"></div>
+                <div class="icon-ring"></div>
+                <div class="icon-ring"></div>
+                <span class="file-icon">{file_icon}</span>
+            </div>
+            
+            <div class="type-badge">
+                ✨ {file_type}
+            </div>
+            
+            <h1 class="title">Your File is Ready!</h1>
+            
+            <div class="filename">{filename}</div>
+            
+            <div class="meta">
+                <div class="meta-item">📦 Size: <span>{size_str}</span></div>
+                <div class="meta-item">🔒 <span>Secure</span></div>
+                <div class="meta-item">✅ <span>Verified</span></div>
+            </div>
+            
+            <a href="{download_url}" class="btn">
+                <span class="btn-icon">⬇️</span>
+                {btn_text}
+            </a>
+            
+            <div class="speed-badge">
+                <span class="speed-dot"></span>
+                High-Speed Cloud Download
+            </div>
+            
+            <div class="features">
+                <div class="feature"><span class="feature-icon">⚡</span> Fast CDN</div>
+                <div class="feature"><span class="feature-icon">🔐</span> Encrypted</div>
+                <div class="feature"><span class="feature-icon">♾️</span> No Limits</div>
+            </div>
+        </div>
+        
+        <footer class="footer">
+            <p class="footer-text">
+                Powered by <a href="/">TeleFileStream</a> • Made with ❤️ by <a href="#">sanjay_src</a>
+            </p>
+        </footer>
+    </main>
+    
+    <script>
+        // Add dynamic particle colors based on theme
+        document.querySelectorAll('.particle').forEach(p => {{
+            p.style.background = getComputedStyle(document.documentElement).getPropertyValue('--primary');
+        }});
+    </script>
 </body>
 </html>
 """)
