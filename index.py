@@ -168,7 +168,8 @@ async def handle_update_logic(message):
         print(f"📩 {LAST_LOG}")
 
         # 2. Handle Commands
-        if text.startswith('/start'):
+        cmd = text.lower().split()[0] if text else ""
+        if cmd.startswith('/start'):
             welcome = (
                 "🚀 **Welcome to TeleFileStream!**\n\n"
                 "The most powerful file hosting and streaming bot on Telegram. Send any file or video to get instant High-Speed Stream & Download links.\n\n"
