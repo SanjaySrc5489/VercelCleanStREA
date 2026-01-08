@@ -257,34 +257,60 @@ async def test_bot():
 async def webhook(request: Request):
     update = None
     try:
-        # 1. Quick payload extraction
+        # 1. Immediate JSON extraction
         update = await request.json()
-        print(f"📥 Update Received: {list(update.keys())}")
+        print(f"📥 Webhook Hit: {list(update.keys())}")
         
-        # 2. Extract Message
+        # 2. Extract Basic Message Info
         msg = update.get('message') or update.get('channel_post') or update.get('edited_message')
         if not msg:
-            return {"ok": True, "info": "no_message"}
+            return {"ok": True, "info": "not_handled"}
             
-        # 3. Process with Bot
+        chat_id = msg.get('chat', {}).get('id')
+        text = (msg.get('text') or msg.get('caption') or "").strip()
+        has_media = any(k in msg for k in ['document', 'video', 'audio', 'photo'])
+
+        # 🎯 FAST PATH: Handle text commands without reaching MTProto (Sub-second response)
+        if text.startswith('/') or (not has_media and text):
+            if text.startswith('/start'):
+                welcome = "👋 **StreamGobhar v4.0 (Stable)**\n\nI am running on Vercel with **Fast-Path** enabled. Send me a file or video to host it!"
+                await send_text_fast(chat_id, welcome)
+                return {"ok": True, "path": "fast_path_start"}
+            
+            # Catch-all for other text
+            if not has_media:
+                await send_text_fast(chat_id, "ℹ️ Please send a **file** or **video** to get a link!")
+                return {"ok": True, "path": "fast_path_info"}
+
+        # 🕒 FLOOD CONTROL: Don't even try MTProto if we are cooling down
+        now = get_now()
+        if now < FLOOD_WAIT_UNTIL:
+            wait_rem = FLOOD_WAIT_UNTIL - now
+            print(f"⏳ FloodWait Active: Skipping MTProto for {wait_rem}s")
+            await send_text_fast(chat_id, f"⚠️ **Telegram is Rate-Limiting me.**\nPlease wait `{wait_rem}s` before sending another file.")
+            return {"ok": True, "path": "flood_blocked"}
+
+        # 📤 HEAVY PATH: Media hosting requires MTProto
         bot = None
         try:
+            print("🚀 Initializing MTProto for media...")
             bot = await setup_bot()
             await handle_update_logic(bot, msg)
         except Exception as inner_e:
-            err_msg = f"❌ Logic Error: {str(inner_e)}"
-            print(err_msg)
-            # Try to notify the user via telegram if we have a chat_id
-            chat_id = msg.get('chat', {}).get('id')
-            if chat_id: await send_text_fast(chat_id, f"⚠️ **Bot crashed internally:**\n`{str(inner_e)}`")
+            err_str = str(inner_e)
+            print(f"❌ MTProto Path Error: {err_str}")
+            if "wait of" in err_str.lower():
+                await send_text_fast(chat_id, f"🛑 **Bot is Rate-Limited.**\n{err_str}")
+            else:
+                await send_text_fast(chat_id, f"⚠️ **Internal Error:** `{err_str[:100]}`")
         finally:
             if bot: await bot.disconnect()
             
-        return {"ok": True}
+        return {"ok": True, "path": "heavy_path"}
+
     except Exception as e:
-        print(f"🔥 Webhook Critical Error: {e}")
-        traceback.print_exc()
-        # Even if we crash, return 200 to stop Telegram from retrying 100 times
+        print(f"🔥 Webhook Critical Crash: {e}")
+        # ALWAYS return 200 to stop Telegram from retrying 100 times and locking the account
         return JSONResponse({"ok": False, "error": str(e)}, status_code=200)
 
 
