@@ -31,11 +31,15 @@ BIN_CHANNEL = safe_int(os.getenv("BIN_CHANNEL"))
 SESSION_STRING = os.getenv("SESSION_STRING", "").strip()
 SECRET_KEY = safe_int(os.getenv("SECRET_KEY"), 742658931)
 
-# Auto-detect base URL
+# Auto-detect base URL (Manual env takes priority)
+MANUAL_BASE_URL = os.getenv("BASE_URL", "").strip()
 VERCEL_URL = os.getenv("VERCEL_URL", "")
-BASE_URL = os.getenv("BASE_URL", "").strip()
-if not BASE_URL:
+
+if MANUAL_BASE_URL:
+    BASE_URL = MANUAL_BASE_URL
+else:
     BASE_URL = f"https://{VERCEL_URL}" if VERCEL_URL else "http://localhost:9090"
+
 if BASE_URL.endswith('/'): BASE_URL = BASE_URL[:-1]
 
 app = FastAPI(title="StreamGobhar API", version="3.0.0")
