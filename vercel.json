@@ -1,3 +1,26 @@
 {
-    "version": 2
+    "builds": [
+        {
+            "src": "api/**/*.py",
+            "use": "@vercel/python"
+        }
+    ],
+    "routes": [
+        {
+            "src": "/webhook",
+            "dest": "api/webhook.py"
+        },
+        {
+            "src": "/stream/(.*)",
+            "dest": "api/stream.py"
+        },
+        {
+            "src": "/download/(.*)",
+            "dest": "api/download.py"
+        },
+        {
+            "src": "/(.*)",
+            "dest": "api/index.py"
+        }
+    ]
 }
