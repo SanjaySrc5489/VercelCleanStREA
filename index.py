@@ -218,9 +218,6 @@ async def process_update(update_data: dict):
     
     finally:
         await bot.disconnect()
-    
-    finally:
-        await bot.disconnect()
 
 
 # ============================================================================
