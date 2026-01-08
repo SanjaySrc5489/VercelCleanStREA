@@ -68,171 +68,104 @@ def get_filename(msg):
 
 
 # ============================================================================
-# ROOT ENDPOINT
+# BOT LOGIC (COMMON)
+# ============================================================================
+
+async def setup_bot():
+    """Shared bot setup logic"""
+    client = TelegramClient(StringSession(), API_ID, API_HASH)
+    await client.start(bot_token=BOT_TOKEN)
+    return client
+
+async def handle_update_logic(bot, message):
+    """Core logic to handle a message (used by both polling and webhook)"""
+    try:
+        chat_id = message.get('chat', {}).get('id') if isinstance(message, dict) else message.chat_id
+        if not chat_id: return
+
+        # Handle /start
+        text = message.get('text', '') if isinstance(message, dict) else (message.text or "")
+        if text == '/start':
+            await bot.send_message(chat_id, "👋 **StreamGobhar is Online!**\n\nI can host your files perfectly. Send me any file!")
+            return
+
+        # Handle Media
+        media = None
+        if isinstance(message, dict):
+            if 'document' in message: media = message['document']['file_id']
+            elif 'video' in message: media = message['video']['file_id']
+            elif 'photo' in message: media = message['photo'][-1]['file_id']
+        else:
+            if message.media: media = message.media
+
+        if media:
+            sent_msg = await bot.send_file(BIN_CHANNEL, media)
+            encoded_id = encode_id(sent_msg.id)
+            
+            # Use detected BASE_URL
+            stream_link = f"{BASE_URL}/stream/{encoded_id}"
+            download_link = f"{BASE_URL}/download/{encoded_id}"
+            
+            response = (
+                f"✅ **File Hosted!**\n\n"
+                f"📋 **ID:** `{encoded_id}`\n"
+                f"▶️ **Stream:** {stream_link}\n"
+                f"⬇️ **Download:** {download_link}"
+            )
+            await bot.send_message(chat_id, response)
+            print(f"✅ Success for chat {chat_id}")
+            
+    except Exception as e:
+        print(f"❌ Error in logic: {e}")
+
+# ============================================================================
+# WEBHOOK ENDPOINTS
 # ============================================================================
 
 @app.get("/")
 async def root():
-    """API root - show available endpoints"""
-    return JSONResponse({
-        "status": "ok",
-        "message": "StreamGobhar API - Telegram File Streaming Service",
-        "version": "2.0.0",
-        "endpoints": {
-            "webhook": "/webhook",
-            "set_webhook": "/set_webhook",
-            "stream": "/stream/{encoded_id}",
-            "download": "/download/{encoded_id}"
-        }
-    })
-
-
-@app.get("/health")
-async def health():
-    """Health check"""
-    return JSONResponse({
-        "status": "healthy",
-        "base_url": BASE_URL,
-        "bot_configured": bool(BOT_TOKEN),
-        "channel_configured": bool(BIN_CHANNEL)
-    })
-
+    return {"status": "running", "mode": "vercel/webhook", "url": BASE_URL}
 
 @app.get("/set_webhook")
 async def set_webhook():
-    """Automated endpoint to set Telegram webhook"""
-    if not BOT_TOKEN:
-        return JSONResponse(status_code=400, content={"error": "BOT_TOKEN not set in environment"})
-    
+    import httpx
     webhook_url = f"{BASE_URL}/webhook"
     telegram_url = f"https://api.telegram.org/bot{BOT_TOKEN}/setWebhook"
-    
-    try:
-        async with httpx.AsyncClient() as client:
-            resp = await client.post(telegram_url, data={"url": webhook_url})
-            return JSONResponse(resp.json())
-    except Exception as e:
-        return JSONResponse(status_code=500, content={"error": str(e)})
-
-
-# ============================================================================
-# WEBHOOK ENDPOINT
-# ============================================================================
+    async with httpx.AsyncClient() as client:
+        r = await client.post(telegram_url, data={"url": webhook_url})
+        return r.json()
 
 @app.post("/webhook")
 async def webhook(request: Request):
-    """Handle Telegram webhook updates"""
-    try:
-        update_data = await request.json()
-        print(f"📥 Incoming: {update_data}")
-        
-        # Await directly - BackgroundTasks can be killed prematurely on Vercel
-        await process_update(update_data)
-        
-        return JSONResponse({"ok": True})
-    except Exception as e:
-        print(f"❌ Webhook Crash: {e}")
-        traceback.print_exc()
-        return JSONResponse({"error": str(e)}, status_code=500)
+    update = await request.json()
+    if 'message' in update or 'channel_post' in update:
+        msg = update.get('message') or update.get('channel_post')
+        bot = await setup_bot()
+        try:
+            await handle_update_logic(bot, msg)
+        finally:
+            await bot.disconnect()
+    return {"ok": True}
 
 
-@app.get("/webhook")
-async def webhook_info():
-    """Webhook health check"""
-    return JSONResponse({"status": "ok", "message": "Webhook endpoint active"})
+# ============================================================================
+# LOCAL POLLING MODE (Only runs if you do: python index.py)
+# ============================================================================
 
+if __name__ == "__main__":
+    from telethon import events
+    print("🚀 Starting StreamGobhar in POLLING mode (Local)...")
+    
+    bot = TelegramClient('local_session', API_ID, API_HASH)
+    
+    @bot.on(events.NewMessage)
+    async def local_handler(event):
+        await handle_update_logic(bot, event.message)
 
-async def process_update(update_data: dict):
-    """Process Telegram bot update"""
-    
-    # Initialize bot
-    bot = TelegramClient(StringSession(), API_ID, API_HASH)
-    
-    try:
-        # Detect message or channel post
-        if 'message' in update_data:
-            message = update_data['message']
-        elif 'channel_post' in update_data:
-            message = update_data['channel_post']
-        else:
-            print("ℹ️ Update is not a message/post, ignoring.")
-            return
-            
-        chat_id = message['chat']['id']
-        
-        # Start bot client
-        await bot.start(bot_token=BOT_TOKEN)
-        print(f"🤖 Bot started for chat_id: {chat_id}")
-        
-        # Handle /start command
-        text = message.get('text', '')
-        if text == '/start':
-            await bot.send_message(
-                chat_id,
-                "👋 **StreamGobhar is Online!**\n\n"
-                "I am running on Vercel.\n"
-                "Send me any file and I'll host it for you!"
-            )
-            print(f"✅ Sent /start response to {chat_id}")
-            return
-        
-        # Handle media
-        media = None
-        if 'document' in message:
-            media = message['document']['file_id']
-        elif 'video' in message:
-            media = message['video']['file_id']
-        elif 'audio' in message:
-            media = message['audio']['file_id']
-        elif 'photo' in message:
-            # Photos come as a list of sizes, take the largest
-            media = message['photo'][-1]['file_id']
-        
-        if media:
-            print(f"📤 Uploading media {media} to channel...")
-            # Upload to storage channel using file_id (fastest way)
-            uploaded_msg = await bot.send_file(BIN_CHANNEL, media)
-            
-            # Get message ID and encode it
-            target_msg_id = uploaded_msg.id
-            encoded_id = encode_id(target_msg_id)
-            
-            # Generate links
-            download_link = f"{BASE_URL}/download/{encoded_id}"
-            
-            # Check if video for streaming link
-            is_video = False
-            if uploaded_msg.document:
-                is_video = any(
-                    isinstance(attr, DocumentAttributeVideo)
-                    for attr in uploaded_msg.document.attributes
-                )
-            
-            # Build response
-            if is_video:
-                stream_link = f"{BASE_URL}/stream/{encoded_id}"
-                response = (
-                    f"✅ **Host Successful!**\n\n"
-                    f"📋 **File ID:** `{encoded_id}`\n\n"
-                    f"▶️ **Stream:** {stream_link}\n"
-                    f"⬇️ **Download:** {download_link}"
-                )
-            else:
-                response = (
-                    f"✅ **Host Successful!**\n\n"
-                    f"📋 **File ID:** `{encoded_id}`\n\n"
-                    f"⬇️ **Download:** {download_link}"
-                )
-            
-            await bot.send_message(chat_id, response)
-            print(f"✅ Response sent to {chat_id}")
-    
-    except Exception as e:
-        print(f"❌ Processing Error: {e}")
-        traceback.print_exc()
-    
-    finally:
-        await bot.disconnect()
+    print(f"📁 Channel: {BIN_CHANNEL}")
+    print(f"🌐 Using Base URL: {BASE_URL}")
+    bot.start(bot_token=BOT_TOKEN)
+    bot.run_until_disconnected()
 
 
 # ============================================================================
