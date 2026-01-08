@@ -50,11 +50,18 @@ app = FastAPI(title="StreamGobhar API", version="3.0.0")
 # Global for simple diagnostics
 LAST_LOG = "No events yet"
 FLOOD_WAIT_UNTIL = 0  # Timestamp when we can try again
-STARTUP_TIME = int(__import__('time').time()) # Ignore messages before this
+# Removed STARTUP_TIME - It causes issues on Vercel cold starts
 
 def get_now():
     import time
     return int(time.time())
+
+# Global Exception Handler for easier Vercel debugging
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    err = f"🔥 Global Exception: {str(exc)}\n{traceback.format_exc()}"
+    print(err)
+    return JSONResponse(status_code=500, content={"error": "Internal Server Error", "details": str(exc), "trace": traceback.format_exc()})
 
 
 def encode_id(msg_id: int) -> str:
@@ -147,9 +154,11 @@ async def handle_update_logic(message):
         date = message.get('date') if is_dict else (message.date.timestamp() if hasattr(message.date, 'timestamp') else 0)
         text = (message.get('text') or message.get('caption') or "") if is_dict else (message.text or message.caption or "")
 
-        # 🕒 Backlog Filter: Ignore old messages
-        if date < STARTUP_TIME:
-            print(f"⏩ Ignoring old msg {msg_id}")
+        # 🕒 Backlog Filter: Only ignore VERY old messages (older than 1 hour)
+        # This prevents the startup filter from breaking Vercel cold starts.
+        now = get_now()
+        if date < (now - 3600):
+            print(f"⏩ Ignoring very old msg {msg_id}")
             return
 
         LAST_LOG = f"Received {msg_id} from {chat_id}"
@@ -418,7 +427,8 @@ if __name__ == "__main__":
     
     @bot_client.on(events.NewMessage)
     async def local_handler(event):
-        await handle_update_logic(bot_client, event.message)
+        # handle_update_logic only takes 1 arg since v5.0
+        await handle_update_logic(event.message)
         
     bot_client.start(bot_token=BOT_TOKEN)
     bot_client.run_until_disconnected()
