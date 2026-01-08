@@ -397,43 +397,303 @@ async def webhook(request: Request):
 
 @app.get("/v/{encoded_id}")
 async def video_landing_page(encoded_id: str):
-    """Cinema Player for Videos"""
+    """Premium Cinema Player for Videos"""
     stream_url = f"{BASE_URL}/stream/{encoded_id}"
     download_url = f"{BASE_URL}/download/{encoded_id}"
     return HTMLResponse(content=f"""
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TeleFileStream | Cinema</title>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎬 TeleFileStream Cinema</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎬</text></svg>">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap">
     <script src="https://cdn.jsdelivr.net/npm/artplayer/dist/artplayer.js"></script>
     <style>
-        :root {{ --primary: #3498db; --bg: #05070a; --glass: rgba(255, 255, 255, 0.03); --border: rgba(255, 255, 255, 0.08); }}
-        body {{ background: var(--bg); margin: 0; padding: 0; color: #fff; font-family: 'Outfit', sans-serif; overflow: hidden; }}
-        .bg {{ position: fixed; top:0; left:0; width:100%; height:100%; background: radial-gradient(circle at 50% 50%, #1e3a8a 0%, transparent 50%); opacity:0.3; z-index:-1; }}
-        .navbar {{ padding: 20px 5%; display: flex; align-items: center; background: var(--glass); border-bottom: 1px solid var(--border); }}
-        .logo {{ font-weight: 600; font-size: 22px; color: var(--primary); text-decoration: none; }}
-        .main {{ max-width: 1100px; margin: 20px auto 0; padding: 0 20px; text-align: center; display: flex; flex-direction: column; min-height: calc(100vh - 80px); justify-content: center; }}
-        .player-box {{ position: relative; border-radius: 20px; overflow: hidden; box-shadow: 0 40px 100px #000; border: 1px solid var(--border); height: 70vh; max-height: 600px; background: #000; width: 100%; }}
-        #art-app {{ position: absolute; top: 0; left: 0; width: 100%; height: 100%; }}
-        #art-app video {{ object-fit: contain; }}
-        .btn {{ margin-top: 30px; padding: 16px 40px; border-radius: 50px; font-weight: 600; background: linear-gradient(135deg, #3498db, #2980b9); color: #fff; text-decoration: none; display: inline-flex; align-items: center; gap: 10px; transition: 0.3s; }}
-        .btn:hover {{ transform: translateY(-3px); box-shadow: 0 10px 20px rgba(52, 152, 219, 0.3); }}
-        @media (max-width: 768px) {{ .player-box {{ height: 35vh; }} .btn {{ width: 100%; justify-content: center; box-sizing: border-box; }} }}
+        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+        :root {{
+            --primary: #6366f1;
+            --primary-glow: rgba(99, 102, 241, 0.4);
+            --accent: #22d3ee;
+            --bg-dark: #0a0a0f;
+            --bg-card: rgba(255, 255, 255, 0.03);
+            --border: rgba(255, 255, 255, 0.08);
+            --text: #f8fafc;
+            --text-muted: rgba(248, 250, 252, 0.5);
+        }}
+        
+        body {{
+            background: var(--bg-dark);
+            color: var(--text);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }}
+        
+        /* Animated Background */
+        .bg-effects {{
+            position: fixed;
+            inset: 0;
+            z-index: -1;
+            overflow: hidden;
+        }}
+        .bg-effects::before {{
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: 
+                radial-gradient(circle at 20% 80%, rgba(99, 102, 241, 0.15) 0%, transparent 40%),
+                radial-gradient(circle at 80% 20%, rgba(34, 211, 238, 0.1) 0%, transparent 40%),
+                radial-gradient(circle at 40% 40%, rgba(168, 85, 247, 0.08) 0%, transparent 30%);
+            animation: bgPulse 15s ease-in-out infinite alternate;
+        }}
+        @keyframes bgPulse {{
+            0% {{ transform: translate(0, 0) scale(1); }}
+            100% {{ transform: translate(-5%, -5%) scale(1.1); }}
+        }}
+        
+        /* Premium Header */
+        .header {{
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            padding: 16px 24px;
+            background: rgba(10, 10, 15, 0.8);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }}
+        
+        .logo {{
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+        }}
+        .logo-icon {{
+            width: 42px;
+            height: 42px;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            box-shadow: 0 4px 20px var(--primary-glow);
+        }}
+        .logo-text {{
+            font-size: 20px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #fff 0%, var(--accent) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }}
+        .logo-badge {{
+            padding: 4px 10px;
+            background: linear-gradient(135deg, var(--primary), #8b5cf6);
+            border-radius: 20px;
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }}
+        
+        /* Main Content */
+        .main {{
+            padding: 100px 24px 40px;
+            max-width: 1200px;
+            margin: 0 auto;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }}
+        
+        /* Player Container */
+        .player-wrapper {{
+            position: relative;
+            width: 100%;
+            border-radius: 20px;
+            overflow: hidden;
+            background: #000;
+            box-shadow: 
+                0 0 0 1px var(--border),
+                0 25px 80px -20px rgba(0, 0, 0, 0.8),
+                0 0 60px -10px var(--primary-glow);
+        }}
+        .player-container {{
+            position: relative;
+            width: 100%;
+            aspect-ratio: 16/9;
+        }}
+        #artplayer-app {{
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+        }}
+        
+        /* Action Bar */
+        .action-bar {{
+            margin-top: 32px;
+            display: flex;
+            justify-content: center;
+            gap: 16px;
+            flex-wrap: wrap;
+        }}
+        
+        .btn {{
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            padding: 18px 36px;
+            border-radius: 16px;
+            font-size: 16px;
+            font-weight: 600;
+            text-decoration: none;
+            cursor: pointer;
+            border: none;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }}
+        
+        .btn-primary {{
+            background: linear-gradient(135deg, var(--primary) 0%, #8b5cf6 100%);
+            color: white;
+            box-shadow: 0 8px 32px var(--primary-glow);
+        }}
+        .btn-primary:hover {{
+            transform: translateY(-4px);
+            box-shadow: 0 16px 48px var(--primary-glow);
+        }}
+        .btn-primary::before {{
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, transparent 0%, rgba(255,255,255,0.2) 50%, transparent 100%);
+            transform: translateX(-100%);
+            transition: transform 0.6s;
+        }}
+        .btn-primary:hover::before {{
+            transform: translateX(100%);
+        }}
+        
+        .btn-icon {{
+            font-size: 20px;
+            animation: bounce 2s infinite;
+        }}
+        @keyframes bounce {{
+            0%, 100% {{ transform: translateY(0); }}
+            50% {{ transform: translateY(-4px); }}
+        }}
+        
+        /* File Info Card */
+        .info-card {{
+            margin-top: 24px;
+            padding: 20px 28px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            backdrop-filter: blur(10px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 24px;
+            flex-wrap: wrap;
+        }}
+        .info-item {{
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-muted);
+            font-size: 14px;
+        }}
+        .info-item span {{
+            color: var(--text);
+            font-weight: 500;
+        }}
+        
+        /* Footer */
+        .footer {{
+            margin-top: auto;
+            padding-top: 48px;
+            text-align: center;
+        }}
+        .footer-text {{
+            color: var(--text-muted);
+            font-size: 13px;
+        }}
+        .footer-text a {{
+            color: var(--accent);
+            text-decoration: none;
+            font-weight: 500;
+        }}
+        .footer-text a:hover {{
+            text-decoration: underline;
+        }}
+        
+        /* Mobile Responsive */
+        @media (max-width: 768px) {{
+            .header {{ padding: 12px 16px; }}
+            .logo-text {{ font-size: 16px; }}
+            .logo-badge {{ display: none; }}
+            .main {{ padding: 80px 16px 24px; }}
+            .btn {{ width: 100%; padding: 16px 24px; }}
+            .info-card {{ padding: 16px; gap: 16px; }}
+        }}
     </style>
 </head>
 <body>
-    <div class="bg"></div>
-    <nav class="navbar"><a href="#" class="logo">🚀 TeleFile<span>Stream</span></a></nav>
-    <div class="main">
-        <div class="player-box" id="art-app"></div>
-        <a href="{download_url}" class="btn"><span>⬇️</span> Download Video Now</a>
-        <div style="margin-top: 30px; color: rgba(255,255,255,0.3); font-size: 13px;">Made with ❤️ by <b>sanjay_src</b></div>
-    </div>
+    <div class="bg-effects"></div>
+    
+    <header class="header">
+        <a href="/" class="logo">
+            <div class="logo-icon">🎬</div>
+            <span class="logo-text">TeleFileStream</span>
+            <span class="logo-badge">Cinema</span>
+        </a>
+    </header>
+    
+    <main class="main">
+        <div class="player-wrapper">
+            <div class="player-container">
+                <div id="artplayer-app"></div>
+            </div>
+        </div>
+        
+        <div class="action-bar">
+            <a href="{download_url}" class="btn btn-primary">
+                <span class="btn-icon">⬇️</span>
+                Download Video Now
+            </a>
+        </div>
+        
+        <div class="info-card">
+            <div class="info-item">🎥 <span>Original Quality</span></div>
+            <div class="info-item">⚡ <span>High-Speed Stream</span></div>
+            <div class="info-item">🔒 <span>Secure & Private</span></div>
+        </div>
+        
+        <footer class="footer">
+            <p class="footer-text">
+                Powered by <a href="#">TeleFileStream</a> • Made with ❤️ by <a href="#">sanjay_src</a>
+            </p>
+        </footer>
+    </main>
+    
     <script>
         var art = new Artplayer({{
-            container: '#art-app',
+            container: '#artplayer-app',
             url: '{stream_url}',
             type: 'mp4',
             autoplay: true,
@@ -444,49 +704,61 @@ async def video_landing_page(encoded_id: str):
             fullscreen: true,
             fullscreenWeb: true,
             playbackRate: true,
-            subtitle: {{
-                url: '',
-                style: {{
-                    color: '#fff',
-                    fontSize: '20px',
-                }},
-            }},
-            theme: '#3498db',
+            theme: '#6366f1',
+            volume: 0.8,
+            muted: false,
+            autoMini: true,
+            mutex: true,
+            backdrop: true,
+            playsInline: true,
+            autoPlayback: true,
             moreVideoAttr: {{
                 crossOrigin: 'anonymous',
                 preload: 'metadata',
                 'webkit-playsinline': true,
                 playsinline: true,
             }},
-            icons: {{ 
-                loading: '<img width="60" src="https://artplayer.org/assets/img/ploading.gif">', 
-                state: '<img width="100" src="https://artplayer.org/assets/img/state.svg">' 
+            icons: {{
+                loading: '<div style="display:flex;align-items:center;justify-content:center;width:100%;height:100%"><div style="width:50px;height:50px;border:3px solid rgba(255,255,255,0.1);border-top-color:#6366f1;border-radius:50%;animation:spin 1s linear infinite"></div></div>',
+                state: '<svg width="80" height="80" viewBox="0 0 80 80"><circle cx="40" cy="40" r="38" fill="rgba(0,0,0,0.6)" stroke="rgba(255,255,255,0.2)" stroke-width="2"/><path d="M32 25 L58 40 L32 55 Z" fill="white"/></svg>'
             }},
             controls: [
                 {{
                     position: 'right',
-                    html: 'Quality',
-                    tooltip: 'Original Quality',
+                    html: '🎬 Quality',
+                    tooltip: 'Original HD Quality',
+                    style: {{
+                        padding: '0 12px',
+                        fontSize: '13px',
+                        background: 'rgba(99, 102, 241, 0.3)',
+                        borderRadius: '6px',
+                        marginRight: '8px'
+                    }},
                     click: function() {{
-                        art.notice.show = 'Playing at Original Quality';
+                        art.notice.show = '✨ Playing at Original Quality';
                     }}
                 }}
             ]
         }});
         
+        // Custom loading spinner keyframes
+        const style = document.createElement('style');
+        style.textContent = '@keyframes spin {{ to {{ transform: rotate(360deg); }} }}';
+        document.head.appendChild(style);
+        
         art.on('ready', () => {{
-            // Auto-adjust player size for vertical videos
             const video = art.video;
             if (video.videoHeight > video.videoWidth) {{
-                // Portrait/Reel video - limit width
-                document.querySelector('.player-box').style.maxWidth = '500px';
-                document.querySelector('.player-box').style.margin = '0 auto';
-                document.querySelector('.player-box').style.height = '75vh';
+                // Portrait video - adjust container
+                document.querySelector('.player-container').style.aspectRatio = '9/16';
+                document.querySelector('.player-wrapper').style.maxWidth = '400px';
+                document.querySelector('.player-wrapper').style.margin = '0 auto';
             }}
         }});
         
         art.on('error', (err) => {{
-            console.error('ArtPlayer Error:', err);
+            console.error('Stream Error:', err);
+            art.notice.show = '⏳ Reconnecting...';
             setTimeout(() => {{ art.url = art.url; }}, 2000);
         }});
     </script>
