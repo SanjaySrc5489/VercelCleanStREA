@@ -33,12 +33,15 @@ SECRET_KEY = safe_int(os.getenv("SECRET_KEY"), 742658931)
 
 # Auto-detect base URL (Manual env takes priority)
 MANUAL_BASE_URL = os.getenv("BASE_URL", "").strip()
-VERCEL_URL = os.getenv("VERCEL_URL", "")
+PROD_URL = os.getenv("VERCEL_PROJECT_PRODUCTION_URL", "")
+DEPLOY_URL = os.getenv("VERCEL_URL", "")
 
 if MANUAL_BASE_URL:
     BASE_URL = MANUAL_BASE_URL
+elif PROD_URL:
+    BASE_URL = f"https://{PROD_URL}"
 else:
-    BASE_URL = f"https://{VERCEL_URL}" if VERCEL_URL else "http://localhost:9090"
+    BASE_URL = f"https://{DEPLOY_URL}" if DEPLOY_URL else "http://localhost:9090"
 
 if BASE_URL.endswith('/'): BASE_URL = BASE_URL[:-1]
 
