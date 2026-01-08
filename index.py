@@ -194,7 +194,11 @@ async def set_webhook():
     webhook_url = f"{BASE_URL}/webhook"
     telegram_url = f"https://api.telegram.org/bot{BOT_TOKEN}/setWebhook"
     async with httpx.AsyncClient() as client:
-        r = await client.post(telegram_url, data={"url": webhook_url}, timeout=10)
+        # Added drop_pending_updates to clear the 170+ stuck messages
+        r = await client.post(telegram_url, data={
+            "url": webhook_url,
+            "drop_pending_updates": True
+        }, timeout=10)
         return r.json()
 
 @app.get("/check_webhook")
