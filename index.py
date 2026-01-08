@@ -1,35 +1,30 @@
 """
 StreamGobhar - Telegram File Streaming Service
-All endpoints in one file for Vercel deployment
+Production-ready for Vercel deployment
 """
 
 from fastapi import FastAPI, Request
-from fastapi.responses import StreamingResponse, Response, JSONResponse
+from fastapi.responses import StreamingResponse, JSONResponse
 from telethon import TelegramClient
 from telethon.sessions import StringSession
 from telethon.tl.types import DocumentAttributeVideo
 import os
 import traceback
-
-# Load config
 from dotenv import load_dotenv
+
 load_dotenv()
 
+# Configuration from environment
 API_ID = int(os.getenv("API_ID", "0"))
 API_HASH = os.getenv("API_HASH", "")
 BOT_TOKEN = os.getenv("BOT_TOKEN", "")
 BIN_CHANNEL = int(os.getenv("BIN_CHANNEL", "0"))
 SESSION_STRING = os.getenv("SESSION_STRING", "")
-
-# Auto-detect base URL (Vercel)
-VERCEL_URL = os.getenv("VERCEL_URL", "")
-if VERCEL_URL:
-    BASE_URL = f"https://{VERCEL_URL}"
-else:
-    BASE_URL = os.getenv("BASE_URL", "http://localhost:9090")
-
-# Secret key for ID obfuscation (XOR encoding)
 SECRET_KEY = int(os.getenv("SECRET_KEY", "742658931"))
+
+# Auto-detect base URL
+VERCEL_URL = os.getenv("VERCEL_URL", "")
+BASE_URL = f"https://{VERCEL_URL}" if VERCEL_URL else os.getenv("BASE_URL", "http://localhost:9090")
 
 app = FastAPI(title="StreamGobhar API", version="2.0.0")
 
@@ -157,9 +152,12 @@ async def process_update(update_data: dict, request: Request):
             if msg and msg.file:
                 # Upload to storage channel
                 uploaded_msg = await bot.send_file(BIN_CHANNEL, msg.media)
-                # Generate links with obfuscated ID
+                
+                # Get message ID and encode it
                 msg_id = uploaded_msg.id
                 encoded_id = encode_id(msg_id)
+                
+                # Generate links
                 download_link = f"{base_url}/download/{encoded_id}"
                 
                 # Check if video
@@ -168,20 +166,23 @@ async def process_update(update_data: dict, request: Request):
                     for attr in uploaded_msg.document.attributes
                 )
                 
+                # Build response
                 if is_video:
                     stream_link = f"{base_url}/stream/{encoded_id}"
-                    await bot.send_message(
-                        chat_id,
-                        f"✅ File uploaded!\n\n"
-                        f"🔗 Download: {download_link}\n"
-                        f"▶️ Stream: {stream_link}"
+                    response = (
+                        f"✅ **File uploaded successfully!**\n\n"
+                        f"📋 **File ID:** `{encoded_id}`\n\n"
+                        f"▶️ **Stream:** {stream_link}\n"
+                        f"⬇️ **Download:** {download_link}"
                     )
                 else:
-                    await bot.send_message(
-                        chat_id,
-                        f"✅ File uploaded!\n\n"
-                        f"🔗 Download: {download_link}"
+                    response = (
+                        f"✅ **File uploaded successfully!**\n\n"
+                        f"📋 **File ID:** `{encoded_id}`\n\n"
+                        f"⬇️ **Download:** {download_link}"
                     )
+                
+                await bot.send_message(chat_id, response)
             else:
                 await bot.send_message(chat_id, "❌ Please send a valid file.")
     
