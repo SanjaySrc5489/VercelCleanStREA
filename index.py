@@ -226,6 +226,14 @@ async def set_webhook():
         }, timeout=10)
         return r.json()
 
+@app.get("/delete_webhook")
+async def delete_webhook():
+    """Manual endpoint to clear webhook if stuck"""
+    telegram_url = f"https://api.telegram.org/bot{BOT_TOKEN}/deleteWebhook"
+    async with httpx.AsyncClient() as client:
+        r = await client.post(telegram_url, data={"drop_pending_updates": True}, timeout=10)
+        return r.json()
+
 @app.get("/check_webhook")
 async def check_webhook():
     telegram_url = f"https://api.telegram.org/bot{BOT_TOKEN}/getWebhookInfo"
