@@ -15,17 +15,28 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# Helper for safe int conversion
+def safe_int(val, default=0):
+    try:
+        if not val: return default
+        return int(str(val).strip())
+    except:
+        return default
+
 # Configuration
-API_ID = int(os.getenv("API_ID", "0"))
-API_HASH = os.getenv("API_HASH", "")
-BOT_TOKEN = os.getenv("BOT_TOKEN", "")
-BIN_CHANNEL = int(os.getenv("BIN_CHANNEL", "0"))
-SESSION_STRING = os.getenv("SESSION_STRING", "")
-SECRET_KEY = int(os.getenv("SECRET_KEY", "742658931"))
+API_ID = safe_int(os.getenv("API_ID"))
+API_HASH = os.getenv("API_HASH", "").strip()
+BOT_TOKEN = os.getenv("BOT_TOKEN", "").strip()
+BIN_CHANNEL = safe_int(os.getenv("BIN_CHANNEL"))
+SESSION_STRING = os.getenv("SESSION_STRING", "").strip()
+SECRET_KEY = safe_int(os.getenv("SECRET_KEY"), 742658931)
 
 # Auto-detect base URL
 VERCEL_URL = os.getenv("VERCEL_URL", "")
-BASE_URL = f"https://{VERCEL_URL}" if VERCEL_URL else os.getenv("BASE_URL", "http://localhost:9090")
+BASE_URL = os.getenv("BASE_URL", "").strip()
+if not BASE_URL:
+    BASE_URL = f"https://{VERCEL_URL}" if VERCEL_URL else "http://localhost:9090"
+if BASE_URL.endswith('/'): BASE_URL = BASE_URL[:-1]
 
 app = FastAPI(title="StreamGobhar API", version="3.0.0")
 
@@ -158,19 +169,39 @@ async def root():
         "last_event": LAST_LOG
     }
 
+@app.get("/debug")
+async def debug_info():
+    """Deep diagnostics for the bot state"""
+    import telethon
+    return {
+        "telethon_version": telethon.__version__,
+        "config_check": {
+            "api_id": bool(API_ID),
+            "api_hash_len": len(API_HASH),
+            "bot_token_valid": ":" in BOT_TOKEN,
+            "bin_channel": BIN_CHANNEL,
+            "session_string_len": len(SESSION_STRING)
+        },
+        "url_check": {
+            "vercel_url": VERCEL_URL,
+            "base_url": BASE_URL
+        },
+        "last_log": LAST_LOG
+    }
+
 @app.get("/set_webhook")
 async def set_webhook():
     webhook_url = f"{BASE_URL}/webhook"
     telegram_url = f"https://api.telegram.org/bot{BOT_TOKEN}/setWebhook"
     async with httpx.AsyncClient() as client:
-        r = await client.post(telegram_url, data={"url": webhook_url})
+        r = await client.post(telegram_url, data={"url": webhook_url}, timeout=10)
         return r.json()
 
 @app.get("/check_webhook")
 async def check_webhook():
     telegram_url = f"https://api.telegram.org/bot{BOT_TOKEN}/getWebhookInfo"
     async with httpx.AsyncClient() as client:
-        r = await client.get(telegram_url)
+        r = await client.get(telegram_url, timeout=10)
         return r.json()
 
 @app.get("/test_bot")
@@ -187,21 +218,37 @@ async def test_bot():
 
 @app.post("/webhook")
 async def webhook(request: Request):
+    update = None
     try:
+        # 1. Quick payload extraction
         update = await request.json()
-        print(f"📥 Update: {list(update.keys())}")
+        print(f"📥 Update Received: {list(update.keys())}")
         
+        # 2. Extract Message
         msg = update.get('message') or update.get('channel_post') or update.get('edited_message')
-        if msg:
+        if not msg:
+            return {"ok": True, "info": "no_message"}
+            
+        # 3. Process with Bot
+        bot = None
+        try:
             bot = await setup_bot()
-            try:
-                await handle_update_logic(bot, msg)
-            finally:
-                if bot: await bot.disconnect()
+            await handle_update_logic(bot, msg)
+        except Exception as inner_e:
+            err_msg = f"❌ Logic Error: {str(inner_e)}"
+            print(err_msg)
+            # Try to notify the user via telegram if we have a chat_id
+            chat_id = msg.get('chat', {}).get('id')
+            if chat_id: await send_text_fast(chat_id, f"⚠️ **Bot crashed internally:**\n`{str(inner_e)}`")
+        finally:
+            if bot: await bot.disconnect()
+            
         return {"ok": True}
     except Exception as e:
         print(f"🔥 Webhook Critical Error: {e}")
-        return JSONResponse({"error": str(e)}, status_code=500)
+        traceback.print_exc()
+        # Even if we crash, return 200 to stop Telegram from retrying 100 times
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=200)
 
 
 # ============================================================================
