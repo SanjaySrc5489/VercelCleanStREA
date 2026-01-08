@@ -40,8 +40,13 @@ if BASE_URL.endswith('/'): BASE_URL = BASE_URL[:-1]
 
 app = FastAPI(title="StreamGobhar API", version="3.0.0")
 
-# Global for simple debugging (per-instance only)
+# Global for simple diagnostics
 LAST_LOG = "No events yet"
+FLOOD_WAIT_UNTIL = 0  # Timestamp when we can try again
+
+def get_now():
+    import time
+    return int(time.time())
 
 
 def encode_id(msg_id: int) -> str:
@@ -76,12 +81,28 @@ async def send_text_fast(chat_id, text):
 
 
 async def setup_bot():
-    """Start MTProto Client for file operations"""
+    """Start MTProto Client using existing SESSION_STRING to avoid login loops"""
+    global FLOOD_WAIT_UNTIL
+    
+    now = get_now()
+    if now < FLOOD_WAIT_UNTIL:
+        wait_rem = FLOOD_WAIT_UNTIL - now
+        raise Exception(f"FloodWait Active: Please wait {wait_rem}s before trying again.")
+
     try:
-        client = TelegramClient(StringSession(), API_ID, API_HASH)
+        # Use SESSION_STRING if available to avoid login loops
+        session = StringSession(SESSION_STRING) if SESSION_STRING else StringSession()
+        client = TelegramClient(session, API_ID, API_HASH)
+        
+        # start() with bot_token will only log in if the session is empty
         await client.start(bot_token=BOT_TOKEN)
         return client
     except Exception as e:
+        if "wait of" in str(e).lower():
+            import re
+            seconds = re.search(r'wait of (\d+)', str(e).lower())
+            if seconds:
+                FLOOD_WAIT_UNTIL = get_now() + int(seconds.group(1))
         print(f"❌ MTProto Start Error: {e}")
         raise e
 
@@ -173,8 +194,12 @@ async def root():
 async def debug_info():
     """Deep diagnostics for the bot state"""
     import telethon
+    now = get_now()
+    flood_status = "Inactive" if now >= FLOOD_WAIT_UNTIL else f"Active (Wait {FLOOD_WAIT_UNTIL - now}s)"
+    
     return {
         "telethon_version": telethon.__version__,
+        "flood_wait": flood_status,
         "config_check": {
             "api_id": bool(API_ID),
             "api_hash_len": len(API_HASH),
