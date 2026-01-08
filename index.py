@@ -84,12 +84,15 @@ async def send_text_fast(chat_id, text):
     try:
         url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
         async with httpx.AsyncClient() as client:
-            await client.post(url, json={
+            r = await client.post(url, json={
                 "chat_id": chat_id,
                 "text": text,
                 "parse_mode": "Markdown"
-            })
-            return True
+            }, timeout=10)
+            res = r.json()
+            if not res.get("ok"):
+                print(f"❌ Bot API Response Error: {res}")
+            return res.get("ok")
     except Exception as e:
         print(f"⚠️ Fast reply failed: {e}")
         return False
@@ -262,12 +265,14 @@ async def set_webhook():
     webhook_url = f"{BASE_URL}/webhook"
     telegram_url = f"https://api.telegram.org/bot{BOT_TOKEN}/setWebhook"
     async with httpx.AsyncClient() as client:
-        # Added drop_pending_updates to clear the 170+ stuck messages
+        # Added drop_pending_updates to clear the backlog
         r = await client.post(telegram_url, data={
             "url": webhook_url,
             "drop_pending_updates": True
         }, timeout=10)
-        return r.json()
+        res = r.json()
+        res["target_url_used"] = webhook_url
+        return res
 
 @app.get("/delete_webhook")
 async def delete_webhook():
