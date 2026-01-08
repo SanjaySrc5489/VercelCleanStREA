@@ -73,9 +73,16 @@ def get_filename(msg):
 
 async def setup_bot():
     """Shared bot setup logic"""
-    client = TelegramClient(StringSession(), API_ID, API_HASH)
-    await client.start(bot_token=BOT_TOKEN)
-    return client
+    try:
+        if not API_ID or not API_HASH or not BOT_TOKEN:
+            raise ValueError(f"Missing Essential Config: API_ID={bool(API_ID)}, API_HASH={bool(API_HASH)}, BOT_TOKEN={bool(BOT_TOKEN)}")
+        client = TelegramClient(StringSession(), API_ID, API_HASH)
+        await client.start(bot_token=BOT_TOKEN)
+        return client
+    except Exception as e:
+        print(f"❌ Failed to setup bot: {e}")
+        traceback.print_exc()
+        raise e
 
 async def handle_update_logic(bot, message):
     """Core logic to handle a message (used by both polling and webhook)"""
@@ -124,7 +131,57 @@ async def handle_update_logic(bot, message):
 
 @app.get("/")
 async def root():
-    return {"status": "running", "mode": "vercel/webhook", "url": BASE_URL}
+    return {
+        "status": "running",
+        "mode": "vercel/webhook",
+        "url": BASE_URL,
+        "config": {
+            "api_id": bool(API_ID),
+            "api_hash": bool(API_HASH),
+            "bot_token": bool(BOT_TOKEN),
+            "bin_channel": bool(BIN_CHANNEL),
+            "session_string": bool(SESSION_STRING)
+        }
+    }
+
+@app.get("/env_check")
+async def env_check():
+    """Check if environment variables are loaded correctly"""
+    return {
+        "API_ID": "✅ Set" if API_ID else "❌ NOT SET",
+        "API_HASH": "✅ Set" if API_HASH else "❌ NOT SET",
+        "BOT_TOKEN": "✅ Set" if BOT_TOKEN else "❌ NOT SET",
+        "BIN_CHANNEL": "✅ Set" if BIN_CHANNEL else "❌ NOT SET",
+        "SESSION_STRING": "✅ Set" if SESSION_STRING else "❌ NOT SET",
+        "SECRET_KEY": "✅ Set" if SECRET_KEY else "❌ NOT SET",
+        "VERCEL_URL": os.getenv("VERCEL_URL", "NOT SET"),
+        "BASE_URL": BASE_URL
+    }
+
+@app.get("/test_bot")
+async def test_bot():
+    """Test bot credentials and channel access"""
+    try:
+        bot = await setup_bot()
+        me = await bot.get_me()
+        
+        # Test channel access
+        test_msg = await bot.send_message(BIN_CHANNEL, "🔧 **Vercel Deployment Test**\nIf you see this, the bot has correct permissions!")
+        
+        await bot.disconnect()
+        return {
+            "status": "success",
+            "bot": f"@{me.username}",
+            "channel_test": "Message sent to BIN_CHANNEL!",
+            "note": "Credentials and Permissions are GOOD!"
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "error_type": type(e).__name__,
+            "details": str(e),
+            "traceback": traceback.format_exc()
+        }
 
 @app.get("/set_webhook")
 async def set_webhook():
@@ -137,14 +194,19 @@ async def set_webhook():
 
 @app.post("/webhook")
 async def webhook(request: Request):
-    update = await request.json()
-    if 'message' in update or 'channel_post' in update:
-        msg = update.get('message') or update.get('channel_post')
-        bot = await setup_bot()
-        try:
-            await handle_update_logic(bot, msg)
-        finally:
-            await bot.disconnect()
+    try:
+        update = await request.json()
+        print(f"📥 Received Update: {update}")
+        if 'message' in update or 'channel_post' in update:
+            msg = update.get('message') or update.get('channel_post')
+            bot = await setup_bot()
+            try:
+                await handle_update_logic(bot, msg)
+            finally:
+                await bot.disconnect()
+    except Exception as e:
+        print(f"❌ Webhook Critical Error: {e}")
+        traceback.print_exc()
     return {"ok": True}
 
 
