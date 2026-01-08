@@ -10,6 +10,7 @@ from telethon.sessions import StringSession
 from telethon.tl.types import DocumentAttributeVideo
 import os
 import traceback
+import httpx
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -79,8 +80,9 @@ async def root():
         "version": "2.0.0",
         "endpoints": {
             "webhook": "/webhook",
-            "stream": "/stream/{msg_id}",
-            "download": "/download/{msg_id}"
+            "set_webhook": "/set_webhook",
+            "stream": "/stream/{encoded_id}",
+            "download": "/download/{encoded_id}"
         }
     })
 
@@ -88,7 +90,29 @@ async def root():
 @app.get("/health")
 async def health():
     """Health check"""
-    return JSONResponse({"status": "healthy"})
+    return JSONResponse({
+        "status": "healthy",
+        "base_url": BASE_URL,
+        "bot_configured": bool(BOT_TOKEN),
+        "channel_configured": bool(BIN_CHANNEL)
+    })
+
+
+@app.get("/set_webhook")
+async def set_webhook():
+    """Automated endpoint to set Telegram webhook"""
+    if not BOT_TOKEN:
+        return JSONResponse(status_code=400, content={"error": "BOT_TOKEN not set in environment"})
+    
+    webhook_url = f"{BASE_URL}/webhook"
+    telegram_url = f"https://api.telegram.org/bot{BOT_TOKEN}/setWebhook"
+    
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(telegram_url, data={"url": webhook_url})
+            return JSONResponse(resp.json())
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
 
 # ============================================================================
@@ -100,7 +124,7 @@ async def webhook(request: Request):
     """Handle Telegram webhook updates"""
     try:
         update_data = await request.json()
-        await process_update(update_data, request)
+        await process_update(update_data)
         return JSONResponse({"ok": True})
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
@@ -112,17 +136,8 @@ async def webhook_info():
     return JSONResponse({"status": "ok", "message": "Webhook endpoint active"})
 
 
-async def process_update(update_data: dict, request: Request):
+async def process_update(update_data: dict):
     """Process Telegram bot update"""
-    
-    # Get base URL
-    vercel_url = os.getenv("VERCEL_URL", "")
-    if vercel_url:
-        base_url = f"https://{vercel_url}"
-    else:
-        host = request.headers.get("host", "localhost:9090")
-        protocol = request.headers.get("x-forwarded-proto", "http")
-        base_url = f"{protocol}://{host}"
     
     # Initialize bot
     bot = TelegramClient(StringSession(), API_ID, API_HASH)
@@ -139,8 +154,11 @@ async def process_update(update_data: dict, request: Request):
         if 'text' in message and message['text'] == '/start':
             await bot.send_message(
                 chat_id,
-                "👋 Send me any file or video.\n"
-                "I'll upload it and give you streaming & download links!"
+                "👋 **Welcome to StreamGobhar!**\n\n"
+                "Send me any file or video, and I'll give you:\n"
+                "▶️ Stream link\n"
+                "⬇️ Download link\n\n"
+                "Ready when you are!"
             )
             return
         
@@ -154,11 +172,11 @@ async def process_update(update_data: dict, request: Request):
                 uploaded_msg = await bot.send_file(BIN_CHANNEL, msg.media)
                 
                 # Get message ID and encode it
-                msg_id = uploaded_msg.id
-                encoded_id = encode_id(msg_id)
+                target_msg_id = uploaded_msg.id
+                encoded_id = encode_id(target_msg_id)
                 
                 # Generate links
-                download_link = f"{base_url}/download/{encoded_id}"
+                download_link = f"{BASE_URL}/download/{encoded_id}"
                 
                 # Check if video
                 is_video = any(
@@ -168,7 +186,7 @@ async def process_update(update_data: dict, request: Request):
                 
                 # Build response
                 if is_video:
-                    stream_link = f"{base_url}/stream/{encoded_id}"
+                    stream_link = f"{BASE_URL}/stream/{encoded_id}"
                     response = (
                         f"✅ **File uploaded successfully!**\n\n"
                         f"📋 **File ID:** `{encoded_id}`\n\n"
