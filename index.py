@@ -11,6 +11,7 @@ from telethon.tl.types import DocumentAttributeVideo
 import os
 import traceback
 import httpx
+import mimetypes
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -207,10 +208,12 @@ async def handle_update_logic(message):
             
             response = (
                 f"✅ <b>Host Successful!</b>\n\n"
-                f"📋 <b>File ID:</b> <code>{encoded_id}</code>\n\n"
-                f"🚀 <b>Watch Online:</b> {watch_link}\n"
+                f"🎬 <b>WATCH ONLINE:</b>\n"
+                f"👉 {watch_link}\n\n"
+                f"� <b>File ID:</b> <code>{encoded_id}</code>\n"
                 f"▶️ <b>Direct Stream:</b> <code>{stream_link}</code>\n"
-                f"⬇️ <b>Fast Download:</b> {download_link}"
+                f"⬇️ <b>Fast Download:</b> {download_link}\n\n"
+                f"✨ <i>Tip: Use 'Watch Online' for a cinematic experience with subtitles and audio controls!</i>"
             )
             await send_text_fast(chat_id, response)
             print(f"🎉 Success for {chat_id}")
@@ -345,32 +348,93 @@ class TelegramStreamWrapper:
 
 @app.get("/watch/{encoded_id}")
 async def watch_player(encoded_id: str):
-    """Modern Web Player for TeleFileStream"""
+    """Cinematic Web Player for TeleFileStream (ArtPlayer)"""
     stream_url = f"{BASE_URL}/stream/{encoded_id}"
     return HTMLResponse(content=f"""
 <!DOCTYPE html>
 <html>
 <head>
-    <title>TeleFileStream | Player</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="stylesheet" href="https://cdn.plyr.io/3.7.8/plyr.css" />
+    <title>TeleFileStream | Cinematic Player</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap">
+    <script src="https://cdn.jsdelivr.net/npm/artplayer/dist/artplayer.js"></script>
     <style>
-        body {{ background: #0b0e14; margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; font-family: 'Inter', sans-serif; }}
-        .container {{ width: 100%; max-width: 900px; padding: 10px; }}
-        .plyr {{ border-radius: 12px; box-shadow: 0 20px 40px rgba(0,0,0,0.5); }}
-        .header {{ color: #fff; text-align: center; margin-bottom: 20px; }}
-        .header h1 {{ font-size: 24px; margin: 0; color: #3498db; }}
+        body {{ 
+            background: radial-gradient(circle at center, #1a1c24 0%, #0b0e14 100%); 
+            margin: 0; padding: 0; color: #fff; font-family: 'Inter', sans-serif;
+            display: flex; flex-direction: column; height: 100vh;
+        }}
+        .navbar {{ padding: 15px 30px; display: flex; align-items: center; background: rgba(0,0,0,0.3); backdrop-filter: blur(10px); }}
+        .navbar .logo {{ font-weight: 600; font-size: 20px; color: #3498db; text-decoration: none; }}
+        .player-container {{ flex: 1; display: flex; justify-content: center; align-items: center; padding: 20px; box-sizing: border-box; }}
+        .artplayer-app {{ 
+            width: 100%; max-width: 1100px; height: 600px; 
+            border-radius: 12px; overflow: hidden; 
+            box-shadow: 0 30px 60px rgba(0,0,0,0.8);
+            border: 1px solid rgba(255,255,255,0.05);
+        }}
+        @media (max-width: 768px) {{ .artplayer-app {{ height: 300px; }} }}
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header"><h1>TeleFileStream Player</h1></div>
-        <video id="player" playsinline controls data-poster="https://telestream.vercel.app/logo.png">
-            <source src="{stream_url}" type="video/mp4" />
-        </video>
+    <div class="navbar">
+        <a href="#" class="logo">🚀 TeleFileStream Pro</a>
     </div>
-    <script src="https://cdn.plyr.io/3.7.8/plyr.polyfilled.js"></script>
-    <script>const player = new Plyr('#player');</script>
+    <div class="player-container">
+        <div class="artplayer-app"></div>
+    </div>
+    <script>
+        var art = new Artplayer({{
+            container: '.artplayer-app',
+            url: '{stream_url}',
+            title: 'TeleFileStream Video',
+            poster: 'https://telestream.vercel.app/logo.png',
+            volume: 0.7,
+            isLive: false,
+            muted: false,
+            autoplay: false,
+            pip: true,
+            autoSize: true,
+            autoMini: true,
+            screenshot: true,
+            setting: true,
+            loop: true,
+            flip: true,
+            playbackRate: true,
+            aspectRatio: true,
+            fullscreen: true,
+            fullscreenWeb: true,
+            subtitleOffset: true,
+            miniProgressBar: true,
+            mutex: true,
+            backdrop: true,
+            playsInline: true,
+            autoPlayback: true,
+            airplay: true,
+            theme: '#3498db',
+            lang: 'en',
+            settings: [
+                {{
+                    html: 'Audio Select',
+                    icon: '<img width="22" height="22" src="https://artplayer.org/assets/img/state.svg">',
+                    tooltip: 'Default',
+                    switch: false,
+                }},
+            ],
+            icons: {{
+                loading: '<img src="https://artplayer.org/assets/img/ploading.gif">',
+                state: '<img width="150" height="150" src="https://artplayer.org/assets/img/state.svg">',
+                indicator: '<img width="16" height="16" src="https://artplayer.org/assets/img/indicator.svg">',
+            }},
+        }});
+        
+        // Handle Errors gracefully
+        art.on('error', function (err) {{
+            console.error('Player Error:', err);
+            // Fallback for some codecs if needed
+        }});
+    </script>
 </body>
 </html>
 """)
@@ -390,12 +454,23 @@ async def stream_file(encoded_id: str, request: Request):
             await client.disconnect()
             return JSONResponse({"error": "File or Document not found in channel"}, status_code=404)
         
-        size = msg.document.size
-        # Force video/mp4 for common streamable types
-        mime = msg.document.mime_type or "video/mp4"
-        if not mime or mime == "application/octet-stream":
+        # Determine filename and MIME type
+        filename = "file"
+        for attr in msg.document.attributes:
+            if hasattr(attr, "file_name") and attr.file_name:
+                filename = attr.file_name
+                break
+        
+        # Use mimetypes to guess correctly for all extensions
+        mime, _ = mimetypes.guess_type(filename)
+        if not mime:
+            mime = msg.document.mime_type or "application/octet-stream"
+        
+        # Force video/mp4 if it's likely a video for the player
+        if "video" in mime or filename.lower().endswith(('.mp4', '.mkv', '.mov', '.avi')):
             mime = "video/mp4"
             
+        size = msg.document.size
         range_header = request.headers.get('range', '')
         start, end = 0, size - 1
         
@@ -446,10 +521,15 @@ async def download_file(encoded_id: str, request: Request):
             if hasattr(attr, "file_name") and attr.file_name:
                 filename = attr.file_name
                 break
+        
+        # Guess MIME type for download
+        mime, _ = mimetypes.guess_type(filename)
+        if not mime:
+            mime = msg.document.mime_type or 'application/octet-stream'
             
         dl_iter = client.iter_download(msg.document, chunk_size=1024*1024)
         headers = {
-            'Content-Type': msg.document.mime_type or 'application/octet-stream',
+            'Content-Type': mime,
             'Content-Disposition': f'attachment; filename="{filename}"',
             'Content-Length': str(msg.document.size),
         }
