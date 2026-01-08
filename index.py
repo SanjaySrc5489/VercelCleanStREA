@@ -87,7 +87,7 @@ async def send_text_fast(chat_id, text):
             r = await client.post(url, json={
                 "chat_id": chat_id,
                 "text": text,
-                "parse_mode": "Markdown"
+                "parse_mode": "HTML"
             }, timeout=10)
             res = r.json()
             if not res.get("ok"):
@@ -171,16 +171,16 @@ async def handle_update_logic(message):
         cmd = text.lower().split()[0] if text else ""
         if cmd.startswith('/start'):
             welcome = (
-                "🚀 **Welcome to TeleFileStream!**\n\n"
+                "🚀 <b>Welcome to TeleFileStream!</b>\n\n"
                 "The most powerful file hosting and streaming bot on Telegram. Send any file or video to get instant High-Speed Stream & Download links.\n\n"
-                "💎 **Features:**\n"
-                "• **Instant Hosting**: Direct copy to cloud channel.\n"
-                "• **Unlimited Stream**: Play videos directly in player.\n"
-                "• **Fast Download**: Get direct high-speed links.\n"
-                "• **Zero Latency**: Powered by Bot-API v5.3.\n\n"
-                "📢 **Bot:** @TeleFileStream_bot\n"
-                "🌐 **Web:** [telestream.vercel.app](https://telestream.vercel.app)\n\n"
-                "✨ *Pulse a file to begin!*"
+                "💎 <b>Features:</b>\n"
+                "• <b>Instant Hosting</b>: Direct copy to cloud channel.\n"
+                "• <b>Unlimited Stream</b>: Play videos directly in player.\n"
+                "• <b>Fast Download</b>: Get direct high-speed links.\n"
+                "• <b>Zero Latency</b>: Powered by Bot-API v5.5.\n\n"
+                "📢 <b>Bot:</b> @TeleFileStream_bot\n"
+                "🌐 <b>Web:</b> <a href='https://telestream.vercel.app'>telestream.vercel.app</a>\n\n"
+                "✨ <i>Send a file to begin!</i>"
             )
             await send_text_fast(chat_id, welcome)
             return
@@ -190,13 +190,13 @@ async def handle_update_logic(message):
         
         if has_media:
             # Step 1: Tell user we are working
-            await send_text_fast(chat_id, "📤 **Processing your file...**")
+            await send_text_fast(chat_id, "📤 <b>Hosting your file...</b>")
             
             # Step 2: Use Bot API to copy to channel (INSTANT)
             new_msg_id = await copy_to_bin(chat_id, msg_id)
             
             if not new_msg_id:
-                await send_text_fast(chat_id, "❌ **Error:** Could not host file. (Bot must be admin in channel!)")
+                await send_text_fast(chat_id, "❌ <b>Error:</b> Could not host file. (Bot must be admin in channel!)")
                 return
 
             # Step 3: Generate links
@@ -205,16 +205,16 @@ async def handle_update_logic(message):
             download_link = f"{BASE_URL}/download/{encoded_id}"
             
             response = (
-                f"✅ **Host Successful!**\n\n"
-                f"📋 **File ID:** `{encoded_id}`\n\n"
-                f"▶️ **Stream:** {stream_link}\n"
-                f"⬇️ **Download:** {download_link}"
+                f"✅ <b>Host Successful!</b>\n\n"
+                f"📋 <b>File ID:</b> <code>{encoded_id}</code>\n\n"
+                f"▶️ <b>Stream:</b> {stream_link}\n"
+                f"⬇️ <b>Download:</b> {download_link}"
             )
             await send_text_fast(chat_id, response)
             print(f"🎉 Success for {chat_id}")
         else:
             if not text.startswith('/'):
-                await send_text_fast(chat_id, "ℹ️ Please send a **file** or **video**!")
+                await send_text_fast(chat_id, "ℹ️ Please send a <b>file</b> or <b>video</b>!")
 
     except Exception as e:
         err = f"❌ Logic Error: {e}"
