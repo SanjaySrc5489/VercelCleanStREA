@@ -4,7 +4,7 @@ Optimized for Vercel Serverless & Robust Bot Support
 """
 
 from fastapi import FastAPI, Request
-from fastapi.responses import StreamingResponse, JSONResponse
+from fastapi.responses import StreamingResponse, JSONResponse, HTMLResponse
 from telethon import TelegramClient
 from telethon.sessions import StringSession
 from telethon.tl.types import DocumentAttributeVideo
@@ -201,14 +201,16 @@ async def handle_update_logic(message):
 
             # Step 3: Generate links
             encoded_id = encode_id(new_msg_id)
+            watch_link = f"{BASE_URL}/watch/{encoded_id}"
             stream_link = f"{BASE_URL}/stream/{encoded_id}"
             download_link = f"{BASE_URL}/download/{encoded_id}"
             
             response = (
                 f"✅ <b>Host Successful!</b>\n\n"
                 f"📋 <b>File ID:</b> <code>{encoded_id}</code>\n\n"
-                f"▶️ <b>Stream:</b> {stream_link}\n"
-                f"⬇️ <b>Download:</b> {download_link}"
+                f"🚀 <b>Watch Online:</b> {watch_link}\n"
+                f"▶️ <b>Direct Stream:</b> <code>{stream_link}</code>\n"
+                f"⬇️ <b>Fast Download:</b> {download_link}"
             )
             await send_text_fast(chat_id, response)
             print(f"🎉 Success for {chat_id}")
@@ -341,6 +343,38 @@ class TelegramStreamWrapper:
         finally:
             await self.client.disconnect()
 
+@app.get("/watch/{encoded_id}")
+async def watch_player(encoded_id: str):
+    """Modern Web Player for TeleFileStream"""
+    stream_url = f"{BASE_URL}/stream/{encoded_id}"
+    return HTMLResponse(content=f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <title>TeleFileStream | Player</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="https://cdn.plyr.io/3.7.8/plyr.css" />
+    <style>
+        body {{ background: #0b0e14; margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; font-family: 'Inter', sans-serif; }}
+        .container {{ width: 100%; max-width: 900px; padding: 10px; }}
+        .plyr {{ border-radius: 12px; box-shadow: 0 20px 40px rgba(0,0,0,0.5); }}
+        .header {{ color: #fff; text-align: center; margin-bottom: 20px; }}
+        .header h1 {{ font-size: 24px; margin: 0; color: #3498db; }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header"><h1>TeleFileStream Player</h1></div>
+        <video id="player" playsinline controls data-poster="https://telestream.vercel.app/logo.png">
+            <source src="{stream_url}" type="video/mp4" />
+        </video>
+    </div>
+    <script src="https://cdn.plyr.io/3.7.8/plyr.polyfilled.js"></script>
+    <script>const player = new Plyr('#player');</script>
+</body>
+</html>
+""")
+
 @app.get("/stream/{encoded_id}")
 async def stream_file(encoded_id: str, request: Request):
     """Stream any supportable file (Videos, Audios, etc)"""
@@ -357,9 +391,11 @@ async def stream_file(encoded_id: str, request: Request):
             return JSONResponse({"error": "File or Document not found in channel"}, status_code=404)
         
         size = msg.document.size
-        # Get mime type if available
-        mime = msg.document.mime_type or "application/octet-stream"
-        
+        # Force video/mp4 for common streamable types
+        mime = msg.document.mime_type or "video/mp4"
+        if not mime or mime == "application/octet-stream":
+            mime = "video/mp4"
+            
         range_header = request.headers.get('range', '')
         start, end = 0, size - 1
         
@@ -376,6 +412,7 @@ async def stream_file(encoded_id: str, request: Request):
             'Content-Type': mime,
             'Content-Length': str(length),
             'Accept-Ranges': 'bytes',
+            'Content-Disposition': 'inline', # FORCE INLINE FOR BROWSER PLAYBACK
         }
         if range_header:
             headers['Content-Range'] = f'bytes {start}-{end}/{size}'
