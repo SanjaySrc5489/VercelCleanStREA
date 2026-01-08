@@ -208,7 +208,7 @@ async def handle_update_logic(message):
             
             response = (
                 f"✅ <b>Host Successful!</b>\n\n"
-                f"🎬 <b>ACCESS YOUR FILE:</b>\n"
+                f"🎬 <b>WATCH YOUR VIDEO:</b>\n"
                 f"👉 {landing_page}\n\n"
                 f"📁 <b>File ID:</b> <code>{encoded_id}</code>\n"
                 f"🔗 <b>Direct Stream:</b> {stream_link}\n"
@@ -386,9 +386,9 @@ async def universal_landing_page(encoded_id: str):
         .main-container {{ max-width: 1200px; margin: 40px auto; padding: 0 20px; text-align: center; }}
         
         /* Player & Display Section */
-        .content-card {{ position: relative; border-radius: 20px; overflow: hidden; box-shadow: 0 40px 100px rgba(0,0,0,0.8); border: 1px solid var(--border); background: #000; min-height: 200px; }}
+        .content-card {{ position: relative; border-radius: 20px; overflow: hidden; box-shadow: 0 40px 100px rgba(0,0,0,0.8); border: 1px solid var(--border); background: #000; min-height: 100px; display: none; }}
         .player-view {{ height: 65vh; width: 100%; display:none; }}
-        .file-view {{ padding: 60px 20px; display:block; }}
+        .file-view {{ padding: 60px 20px; display:none; text-align: center; }}
         .file-icon {{ font-size: 80px; margin-bottom: 20px; display: block; }}
         
         .action-container {{ margin-top: 30px; display: flex; flex-direction: column; align-items: center; gap: 15px; }}
@@ -412,7 +412,7 @@ async def universal_landing_page(encoded_id: str):
     </nav>
 
     <div class="main-container">
-        <div class="content-card">
+        <div class="content-card" id="content-card">
             <div id="player-view" class="player-view">
                 <div id="art-app" style="width:100%; height:100%;"></div>
             </div>
@@ -435,11 +435,11 @@ async def universal_landing_page(encoded_id: str):
 
     <script>
         const streamUrl = "{stream_url}";
-        const isVideo = streamUrl.match(/\.(mp4|mkv|mov|avi|webm|m4v)$|stream/i);
+        const isVideo = streamUrl.match(/\.(mp4|mkv|mov|avi|webm|m4v|3gp|flv|ogv)$|stream/i);
 
         if (isVideo) {{
             document.getElementById('player-view').style.display = 'block';
-            document.getElementById('file-view').style.display = 'none';
+            document.getElementById('content-card').style.display = 'block';
             
             var art = new Artplayer({{
                 container: '#art-app',
@@ -456,6 +456,11 @@ async def universal_landing_page(encoded_id: str):
                 }},
             }});
         }} else {{
+            document.getElementById('file-view').style.display = 'block';
+            document.getElementById('content-card').style.display = 'block';
+            document.getElementById('content-card').style.background = 'transparent';
+            document.getElementById('content-card').style.boxShadow = 'none';
+            document.getElementById('content-card').style.border = 'none';
             document.getElementById('file-title').innerText = "File Ready for Download";
         }}
     </script>
