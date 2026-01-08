@@ -165,7 +165,7 @@ async def handle_update_logic(message):
                 "• **Unlimited Stream**: Play videos directly in player.\n"
                 "• **Fast Download**: Get direct high-speed links.\n"
                 "• **Zero Latency**: Powered by Bot-API v5.3.\n\n"
-                "📢 **Channel:** @TeleFileStream\n"
+                "📢 **Bot:** @TeleFileStream_bot\n"
                 "🌐 **Web:** [telestream.vercel.app](https://telestream.vercel.app)\n\n"
                 "✨ *Pulse a file to begin!*"
             )
