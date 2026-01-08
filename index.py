@@ -14,6 +14,25 @@ import httpx
 import mimetypes
 from dotenv import load_dotenv
 
+# ============================================================================
+# UTILS & WRAPPERS
+# ============================================================================
+
+class TelegramStreamWrapper:
+    """Helper to stream Telegram chunks to FastAPI response"""
+    def __init__(self, client, iterator):
+        self.client = client
+        self.iterator = iterator
+    async def __aiter__(self):
+        try:
+            async for chunk in self.iterator:
+                yield chunk
+        except Exception as e:
+            print(f"📡 Stream Interrupted: {e}")
+        finally:
+            # We don't disconnect here because we use a GLOBAL_CLIENT pool
+            pass
+
 load_dotenv()
 
 # Helper for safe int conversion
@@ -56,6 +75,19 @@ FLOOD_WAIT_UNTIL = 0  # Timestamp when we can try again
 def get_now():
     import time
     return int(time.time())
+
+# Global Client for Reuse (Helps with Vercel warm starts)
+GLOBAL_CLIENT = None
+
+async def get_client():
+    global GLOBAL_CLIENT
+    if GLOBAL_CLIENT is None or not GLOBAL_CLIENT.is_connected():
+        try:
+            GLOBAL_CLIENT = TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH)
+            await GLOBAL_CLIENT.connect()
+        except Exception as e:
+            print(f"⚠️ Initial Connect Failed: {e}")
+    return GLOBAL_CLIENT
 
 # Global Exception Handler for easier Vercel debugging
 @app.exception_handler(Exception)
@@ -399,8 +431,31 @@ async def video_landing_page(encoded_id: str):
     </div>
     <script>
         var art = new Artplayer({{
-            container: '#art-app', url: '{stream_url}', autoplay: true, setting: true, pip: true, screenshot: true, fullscreen: true, theme: '#3498db',
-            icons: {{ loading: '<img width="60" src="https://artplayer.org/assets/img/ploading.gif">', state: '<img width="100" src="https://artplayer.org/assets/img/state.svg">' }},
+            container: '#art-app',
+            url: '{stream_url}',
+            type: 'mp4',
+            autoplay: true,
+            autoSize: true,
+            setting: true,
+            pip: true,
+            screenshot: true,
+            fullscreen: true,
+            theme: '#3498db',
+            moreVideoAttr: {{
+                crossOrigin: 'anonymous',
+                preload: 'metadata',
+                'webkit-playsinline': true,
+                playsinline: true,
+            }},
+            icons: {{ 
+                loading: '<img width="60" src="https://artplayer.org/assets/img/ploading.gif">', 
+                state: '<img width="100" src="https://artplayer.org/assets/img/state.svg">' 
+            }},
+        }});
+        art.on('error', (err) => {{
+            console.error('ArtPlayer Error:', err);
+            // Auto-reload on fatal errors if it's a reconnection loop
+            setTimeout(() => {{ art.url = art.url; }}, 2000);
         }});
     </script>
 </body>
@@ -462,8 +517,7 @@ async def stream_file(encoded_id: str, request: Request):
         msg_id = decode_id(encoded_id)
         if not SESSION_STRING: return JSONResponse({"error": "SESSION_STRING missing"}, status_code=500)
         
-        client = TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH)
-        await client.start()
+        client = await get_client()
         
         msg = await client.get_messages(BIN_CHANNEL, ids=msg_id)
         if not msg or not msg.document:
@@ -497,13 +551,16 @@ async def stream_file(encoded_id: str, request: Request):
             end = min(end, size - 1)
         
         length = end - start + 1
-        dl_iter = client.iter_download(msg.document, offset=start, limit=length, chunk_size=1024*1024)
+        # 🚀 Use a slightly smaller chunk (256KB) to avoid Vercel payload limits/timeouts
+        dl_iter = client.iter_download(msg.document, offset=start, limit=length, chunk_size=256*1024)
         
         headers = {
             'Content-Type': mime,
             'Content-Length': str(length),
             'Accept-Ranges': 'bytes',
             'Content-Disposition': 'inline', # FORCE INLINE FOR BROWSER PLAYBACK
+            'Access-Control-Allow-Origin': '*', # Explicit CORS for the stream
+            'X-Content-Type-Options': 'nosniff',
         }
         if range_header:
             headers['Content-Range'] = f'bytes {start}-{end}/{size}'
@@ -511,9 +568,11 @@ async def stream_file(encoded_id: str, request: Request):
         else:
             status = 200
             
+        print(f"📦 Streaming {filename} | Range: {start}-{end} | Type: {mime}")
         return StreamingResponse(TelegramStreamWrapper(client, dl_iter), status_code=status, headers=headers)
     except Exception as e:
         print(f"🔥 Stream Error: {e}")
+        traceback.print_exc()
         return JSONResponse({"error": str(e)}, status_code=500)
 
 @app.get("/download/{encoded_id}")
@@ -523,8 +582,7 @@ async def download_file(encoded_id: str, request: Request):
         msg_id = decode_id(encoded_id)
         if not SESSION_STRING: return JSONResponse({"error": "SESSION_STRING missing"}, status_code=500)
 
-        client = TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH)
-        await client.start()
+        client = await get_client()
         
         msg = await client.get_messages(BIN_CHANNEL, ids=msg_id)
         if not msg or not msg.document:
