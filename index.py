@@ -200,20 +200,54 @@ async def handle_update_logic(message):
                 await send_text_fast(chat_id, "❌ <b>Error:</b> Could not host file. (Bot must be admin in channel!)")
                 return
 
-            # Step 3: Generate links
+            # Step 3: Generate links & Meta Detection
             encoded_id = encode_id(new_msg_id)
             landing_page = f"{BASE_URL}/v/{encoded_id}"
-            stream_link = f"{BASE_URL}/stream/{encoded_id}"
             download_link = f"{BASE_URL}/download/{encoded_id}"
             
+            # Detect Content Type (Media vs File)
+            filename = "file"
+            if not is_dict:
+                # Telethon object: extract filename
+                if message.document:
+                    for attr in message.document.attributes:
+                        if hasattr(attr, "file_name") and attr.file_name:
+                            filename = attr.file_name
+                            break
+                elif message.video:
+                    filename = getattr(message.video, 'file_name', 'video.mp4')
+                elif message.audio:
+                    filename = getattr(message.audio, 'file_name', 'audio.mp3')
+            else:
+                # Bot API dict: extract filename from document/video if possible
+                doc = message.get('document') or message.get('video') or message.get('audio')
+                if doc:
+                    filename = doc.get('file_name', 'media')
+
+            # List of media extensions for smart detection
+            media_exts = ('.mp4', '.mkv', '.mov', '.avi', '.webm', '.m4v', '.3gp', '.flv', '.ogv', '.mp3', '.wav', '.ogg', '.flac', '.m4a')
+            
+            # Determine if it's a media file for streaming
+            is_media = filename.lower().endswith(media_exts)
+            if is_dict:
+                is_media = is_media or any(k in message for k in ['video', 'audio', 'video_note'])
+            else:
+                is_media = is_media or message.video or message.audio or message.voice
+
+            if is_media:
+                main_action = f"🎬 <b>WATCH YOUR VIDEO:</b>\n👉 {landing_page}"
+                tip = "✨ <i>Tip: The player supports multi-audio, subtitles, and PIP!</i>"
+            else:
+                main_action = f"📥 <b>DOWNLOAD YOUR FILE:</b>\n👉 {landing_page}"
+                tip = "✨ <i>Tip: High-speed cloud download available!</i>"
+
             response = (
                 f"✅ <b>Host Successful!</b>\n\n"
-                f"🎬 <b>WATCH YOUR VIDEO:</b>\n"
-                f"👉 {landing_page}\n\n"
+                f"{main_action}\n\n"
                 f"📁 <b>File ID:</b> <code>{encoded_id}</code>\n"
-                f"🔗 <b>Direct Stream:</b> {stream_link}\n"
                 f"⬇️ <b>Fast Download:</b> {download_link}\n\n"
-                f"✨ <i>Tip: The link above works for both watching online and downloading!</i>"
+                f"{tip}\n\n"
+                f"⚡ <b>Made by:</b> sanjay_src"
             )
             await send_text_fast(chat_id, response)
             print(f"🎉 Success for {chat_id}")
@@ -433,37 +467,45 @@ async def universal_landing_page(encoded_id: str):
         </div>
     </div>
 
-    <script>
-        const streamUrl = "{stream_url}";
-        const isVideo = streamUrl.match(/\.(mp4|mkv|mov|avi|webm|m4v|3gp|flv|ogv)$|stream/i);
+    <div class="info-card">
+        <h2 id="info-header">Ready to Play</h2>
+        <p id="info-desc">Your content is served directly from Telegram servers with zero buffering. Use the settings icon in the player to toggle Audio tracks and Subtitles.</p>
+    </div>
 
-        if (isVideo) {{
-            document.getElementById('player-view').style.display = 'block';
-            document.getElementById('content-card').style.display = 'block';
-            
-            var art = new Artplayer({{
-                container: '#art-app',
-                url: streamUrl,
-                autoplay: true,
-                setting: true,
-                pip: true,
-                screenshot: true,
-                fullscreen: true,
-                theme: '#3498db',
-                icons: {{
-                    loading: '<img width="60" src="https://artplayer.org/assets/img/ploading.gif">',
-                    state: '<img width="100" src="https://artplayer.org/assets/img/state.svg">',
-                }},
-            }});
-        }} else {{
-            document.getElementById('file-view').style.display = 'block';
-            document.getElementById('content-card').style.display = 'block';
-            document.getElementById('content-card').style.background = 'transparent';
-            document.getElementById('content-card').style.boxShadow = 'none';
-            document.getElementById('content-card').style.border = 'none';
-            document.getElementById('file-title').innerText = "File Ready for Download";
-        }}
-    </script>
+    <div style="margin-top: 40px; color: rgba(255,255,255,0.3); font-size: 13px;">
+        Made with ❤️ by <b>sanjay_src</b>
+    </div>
+</div>
+
+<script>
+    const streamUrl = "{stream_url}";
+    const isVideo = streamUrl.match(/\.(mp4|mkv|mov|avi|webm|m4v|3gp|flv|ogv|mp3|wav|ogg)$|stream/i);
+
+    if (isVideo) {{
+        document.getElementById('player-view').style.display = 'block';
+        document.getElementById('content-card').style.display = 'block';
+        
+        var art = new Artplayer({{
+            container: '#art-app',
+            url: streamUrl,
+            autoplay: true,
+            setting: true,
+            pip: true,
+            screenshot: true,
+            fullscreen: true,
+            theme: '#3498db',
+        }});
+    }} else {{
+        document.getElementById('file-view').style.display = 'block';
+        document.getElementById('content-card').style.display = 'block';
+        document.getElementById('content-card').style.background = 'transparent';
+        document.getElementById('content-card').style.boxShadow = 'none';
+        document.getElementById('content-card').style.border = 'none';
+        document.getElementById('file-title').innerText = "File Ready for Download";
+        document.getElementById('info-header').innerText = "Safe Cloud Hosting";
+        document.getElementById('info-desc').innerText = "This file is hosted securely on our cloud channel. Click the button below to start your high-speed download.";
+    }}
+</script>
 </body>
 </html>
 """)
