@@ -276,7 +276,7 @@ async def handle_update_logic(message):
                 f"📁 <b>File ID:</b> <code>{encoded_id}</code>\n"
                 f"⬇️ <b>Fast Download:</b> {download_link}\n\n"
                 f"{tip}\n\n"
-                f"⚡ <b>Made by:</b> sanjay_src"
+                f"⚡ <b>Made by:</b> @Sanjay_Src"
             )
             await send_text_fast(chat_id, response)
             print(f"🎉 Success for {chat_id}")
@@ -686,7 +686,7 @@ async def video_landing_page(encoded_id: str):
         
         <footer class="footer">
             <p class="footer-text">
-                Powered by <a href="#">TeleFileStream</a> • Made with ❤️ by <a href="#">sanjay_src</a>
+                Powered by <a href="#">TeleFileStream</a> • Made with ❤️ by <a href="#">@Sanjay_Src</a>
             </p>
         </footer>
     </main>
@@ -1360,7 +1360,7 @@ async def file_landing_page(encoded_id: str):
         
         <footer class="footer">
             <p class="footer-text">
-                Powered by <a href="/">TeleFileStream</a> • Made with ❤️ by <a href="#">sanjay_src</a>
+                Powered by <a href="/">TeleFileStream</a> • Made with ❤️ by <a href="#">@Sanjay_Src</a>
             </p>
         </footer>
     </main>
